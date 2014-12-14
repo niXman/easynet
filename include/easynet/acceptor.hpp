@@ -73,9 +73,9 @@ struct acceptor: private boost::noncopyable {
 	}
 
 	template<typename F>
-	void async_accept(F &&handler) {
+	void async_accept(F &&f) {
 		socket_ptr socket(new socket_ptr::element_type(acc.get_io_service()));
-		async_accept(socket, handler);
+		async_accept(socket, f);
 	}
 
 	void async_accept(void(*f)(socket_ptr, const endpoint&, const error_code&)) {
