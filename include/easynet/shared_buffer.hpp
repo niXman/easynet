@@ -76,7 +76,7 @@ inline shared_buffer buffer_clone(const shared_buffer& buffer, size_t from, size
 inline shared_buffer buffer_clone(const void* ptr, size_t size) {
 	assert(ptr && size);
 	shared_buffer result = { {new char[size], std::default_delete<char[]>()}, size };
-	memcpy(result.data.get(), ptr, size);
+	std::memcpy(result.data.get(), ptr, size);
 	return result;
 }
 
