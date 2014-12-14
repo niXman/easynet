@@ -62,12 +62,12 @@ struct acceptor: private boost::noncopyable {
 	}
 
 	template<typename F>
-	void async_accept(socket_ptr socket, F &&handler) {
+	void async_accept(socket_ptr socket, F &&f) {
 		run = true;
 		acc.async_accept(
 			 socket->get_socket()
-			,[this, socket, handler](const boost::system::error_code& ec) {
-					handler(socket, (!ec ? socket->get_socket().remote_endpoint() : endpoint()), ec);
+			,[this, socket, f](const boost::system::error_code& ec) {
+					f(socket, (!ec ? socket->get_socket().remote_endpoint() : endpoint()), ec);
 			 }
 		);
 	}
@@ -78,28 +78,28 @@ struct acceptor: private boost::noncopyable {
 		async_accept(socket, handler);
 	}
 
-	void async_accept(void(*handler)(socket_ptr, const endpoint&, const error_code&)) {
+	void async_accept(void(*f)(socket_ptr, const endpoint&, const error_code&)) {
 		async_accept(
-			[handler](socket_ptr socket, const endpoint &ep,const error_code &ec) {
-				handler(socket, ep, ec);
+			[f](socket_ptr socket, const endpoint &ep,const error_code &ec) {
+				f(socket, ep, ec);
 			}
 		);
 	}
 
 	template<typename Obj>
-	void async_accept(Obj* obj, void(Obj::*handler)(socket_ptr, const endpoint&, const error_code&)) {
+	void async_accept(Obj* o, void(Obj::*m)(socket_ptr, const endpoint&, const error_code&)) {
 		async_accept(
-			[obj, handler](socket_ptr socket, const endpoint &ep,const error_code &ec) {
-				(obj->*handler)(socket, ep, ec);
+			[o, m](socket_ptr socket, const endpoint &ep,const error_code &ec) {
+				(o->*m)(socket, ep, ec);
 			}
 		);
 	}
 
 	template<typename Obj>
-	void async_accept(boost::shared_ptr<Obj> obj, void(Obj::*handler)(socket_ptr, const endpoint&, const error_code&)) {
+	void async_accept(std::shared_ptr<Obj> o, void(Obj::*m)(socket_ptr, const endpoint&, const error_code&)) {
 		async_accept(
-			[obj, handler](socket_ptr socket, const endpoint &ep,const error_code &ec) {
-				(obj->*handler)(socket, ep, ec);
+			[o, m](socket_ptr socket, const endpoint &ep,const error_code &ec) {
+				(o.get()->*m)(socket, ep, ec);
 			}
 		);
 	}
