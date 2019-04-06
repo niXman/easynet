@@ -30,8 +30,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <easynet/socket.hpp>
-#include <easynet/acceptor.hpp>
-
 #include "../tests_config.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -40,36 +38,55 @@
 
 /***************************************************************************/
 
-struct server {
-    server(boost::asio::io_context& ios, const char* ip, boost::uint16_t port)
-		:acceptor(ios, ip, port)
+struct client_impl: std::enable_shared_from_this<client_impl> {
+    client_impl(boost::asio::io_context& ios, const char *ip, std::uint16_t port)
+		:socket(ios)
 	{
-		acceptor.async_accept(this, &server::on_accept);
+        socket.connect(ip, port);
 	}
 
-	void on_accept(
-        easynet::socket socket,
-        const easynet::endpoint& ep,
-		const boost::system::error_code& ec)
-	{
-		char buf[tests_config::buffer_size] = "\0";
+	void write() {
+		easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
+        std::strcpy(easynet::buffer_data(buf), "data string");
 
-        std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
+		socket.async_write_some(buf, shared_from_this(), &client_impl::write_handler);
+	}
+	void read() {
+		socket.async_read_some(tests_config::buffer_size, shared_from_this(), &client_impl::read_handler);
+	}
+
+    void write_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t wr) {
+        std::cout
+        << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
+        << std::endl;
+
 		if ( !ec ) {
-			boost::system::error_code ec;
-            socket.read(buf, tests_config::buffer_size, ec);
-			if ( !ec ) {
-                socket.write(buf, tests_config::buffer_size, ec);
-			} else {
-                std::cout << "[1] ec = " << ec << std::endl;
+			if ( wr != easynet::buffer_size(buf) ) {
+				easynet::shared_buffer nbuf = easynet::buffer_shift(buf, wr);
+                socket.async_write_some(std::move(nbuf), shared_from_this(), &client_impl::write_handler);
 			}
 		} else {
-            std::cout << "[2] ec = " << ec << std::endl;
+            std::cout << "[1] ec = " << ec << std::endl;
 		}
 	}
 
+    void read_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t rd) {
+        std::cout
+        << "read_handler(): " << easynet::buffer_data(buf) << ", " << rd << ", ec = " << ec
+        << std::endl;
+
+        if ( !ec ) {
+            if ( rd != easynet::buffer_size(buf) ) {
+                easynet::shared_buffer nbuf = easynet::buffer_shift(buf, rd);
+                socket.async_read_some(nbuf, shared_from_this(), &client_impl::read_handler);
+            }
+        } else {
+            std::cout << "[2] ec = " << ec << std::endl;
+        }
+	}
+
 private:
-	easynet::acceptor acceptor;
+	easynet::socket socket;
 };
 
 /***************************************************************************/
@@ -78,7 +95,11 @@ int main(int, char**) {
 	try {
         boost::asio::io_context ios;
 
-		server server(ios, tests_config::ip, tests_config::port);
+		{
+            auto client = std::make_shared<client_impl>(ios, tests_config::ip, tests_config::port);
+			client->write();
+			client->read();
+		}
 
 		ios.run();
 	} catch (const std::exception &ex) {

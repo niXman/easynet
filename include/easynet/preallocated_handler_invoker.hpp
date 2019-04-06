@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -29,8 +29,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _easynet__preallocated_handler_invoker_hpp
-#define _easynet__preallocated_handler_invoker_hpp
+#ifndef __easynet__preallocated_handler_invoker_hpp
+#define __easynet__preallocated_handler_invoker_hpp
 
 #include <memory>
 
@@ -43,11 +43,11 @@ namespace easynet {
 
 template<typename Allocator, typename H>
 struct preallocated_handler_invoker {
-	typedef preallocated_handler_invoker<Allocator, H> this_type;
+    using this_type = preallocated_handler_invoker<Allocator, H>;
 
 	preallocated_handler_invoker(Allocator &allocator , H h)
 		:allocator(std::addressof(allocator))
-		,handler(h)
+        ,handler(std::move(h))
 	{}
 
 	friend void* asio_handler_allocate(std::size_t size, this_type *ctx) {
@@ -59,7 +59,7 @@ struct preallocated_handler_invoker {
 	}
 
 	template <typename F>
-	friend void asio_handler_invoke(F& function, this_type *context) {
+    friend void asio_handler_invoke(F& function, this_type *context) {
 		using boost::asio::asio_handler_invoke;
 		asio_handler_invoke(function, std::addressof(context->handler));
 	}
@@ -78,4 +78,4 @@ private:
 
 } // namespace easynet
 
-#endif // _easynet__preallocated_handler_invoker_hpp
+#endif // __easynet__preallocated_handler_invoker_hpp

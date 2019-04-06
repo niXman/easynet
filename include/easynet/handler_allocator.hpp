@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -29,49 +29,52 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _easynet__handler_allocator_hpp
-#define _easynet__handler_allocator_hpp
+#ifndef __easynet__handler_allocator_hpp
+#define __easynet__handler_allocator_hpp
 
-#include <cstddef>
-#include <boost/noncopyable.hpp>
-#include <boost/aligned_storage.hpp>
+#include <type_traits>
+#include <memory>
 
 namespace easynet {
 
 /***************************************************************************/
 
-template<size_t alloc_size>
-struct handler_allocator :private boost::noncopyable {
-	handler_allocator()
-		:storage()
-		,in_use(false)
-	{}
+template<std::size_t alloc_size>
+struct handler_allocator {
+    handler_allocator(const handler_allocator &) = delete;
+    handler_allocator& operator=(const handler_allocator &) = delete;
 
-	~handler_allocator() {}
+    handler_allocator(handler_allocator &&) = default;
+    handler_allocator& operator=(handler_allocator &&) = default;
 
-	void* allocate(size_t size) {
-		if ( !in_use && (size <= storage.size) ) {
-			in_use = true;
-			return storage.address();
-		}
-		return ::operator new(size);
-	}
+    handler_allocator()
+        :in_use(false)
+    {}
 
-	void deallocate(void* pointer) {
-		if ( storage.address() == pointer ) {
-			in_use = false;
-			return;
-		}
-		::operator delete(pointer);
-	}
+    void *allocate(std::size_t size) {
+        if (!in_use && size <= alloc_size) {
+            in_use = true;
+            return std::addressof(storage);
+        }
+
+        return ::operator new(size);
+    }
+
+    void deallocate(void *pointer) {
+        if (std::addressof(storage) == pointer) {
+            in_use = false;
+        } else {
+            ::operator delete(pointer);
+        }
+    }
 
 private:
-	boost::aligned_storage<alloc_size> storage;
-	bool in_use;
+    typename std::aligned_storage<alloc_size>::type storage;
+    bool in_use;
 };
 
 /***************************************************************************/
 
 } // namespace easynet
 
-#endif // _easynet__handler_allocator_hpp
+#endif // __easynet__handler_allocator_hpp

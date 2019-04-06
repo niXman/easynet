@@ -30,8 +30,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <easynet/socket.hpp>
-#include <easynet/acceptor.hpp>
-
 #include "../tests_config.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -40,30 +38,39 @@
 
 /***************************************************************************/
 
+struct client_impl {
+    void write_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t wr) {
+        std::cout
+        << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
+        << std::endl;
+    }
+
+    void read_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t rd) {
+        std::cout
+        << "read_handler(): " << easynet::buffer_data(buf) << ", " << rd << ", ec = " << ec
+        << std::endl;
+    }
+};
+
+/***************************************************************************/
+
 int main(int, char**) {
     try {
         boost::asio::io_context ios;
-        easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
 
-        while ( true ) {
-            char buf[tests_config::buffer_size] = "\0";
-            easynet::endpoint ep;
-            easynet::error_code ec;
-            auto socket = acceptor.accept(ec, &ep);
+        easynet::socket socket(ios);
+        socket.connect(tests_config::ip, tests_config::port);
 
-            std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
-            if ( !ec ) {
-                socket.read(buf, tests_config::buffer_size, ec);
-                if ( !ec ) {
-                    socket.write(buf, tests_config::buffer_size, ec);
-                } else {
-                    std::cout << "[1] ec = " << ec << std::endl;
-                }
-            } else {
-                std::cout << "[2] ec = " << ec << std::endl;
-            }
-        }
-    } catch (const std::exception& ex) {
+        client_impl client;
+
+        easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
+        std::strcpy(easynet::buffer_data(buf), "some string");
+
+        socket.async_write(buf, &client, &client_impl::write_handler);
+        socket.async_read(tests_config::buffer_size, &client, &client_impl::read_handler);
+
+        ios.run();
+    } catch(const std::exception &ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
         return EXIT_FAILURE;
     }

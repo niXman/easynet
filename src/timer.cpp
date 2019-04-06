@@ -29,46 +29,63 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <easynet/socket.hpp>
-#include <easynet/acceptor.hpp>
+#include <easynet/timer.hpp>
 
-#include "../tests_config.hpp"
+#include <boost/asio/steady_timer.hpp>
 
-#include <boost/asio/io_context.hpp>
-
-#include <iostream>
+namespace easynet {
 
 /***************************************************************************/
 
-int main(int, char**) {
-    try {
-        boost::asio::io_context ios;
-        easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
+struct timer::impl {
+    impl(boost::asio::io_context &ios)
+        :m_timer{ios}
+        ,m_started{false}
+    {}
+    ~impl()
+    {}
 
-        while ( true ) {
-            char buf[tests_config::buffer_size] = "\0";
-            easynet::endpoint ep;
-            easynet::error_code ec;
-            auto socket = acceptor.accept(ec, &ep);
+    void start(std::size_t ms, timeout_handler cb) {
+        if ( m_started ) {
+            cb(boost::asio::error::already_started);
 
-            std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
-            if ( !ec ) {
-                socket.read(buf, tests_config::buffer_size, ec);
-                if ( !ec ) {
-                    socket.write(buf, tests_config::buffer_size, ec);
-                } else {
-                    std::cout << "[1] ec = " << ec << std::endl;
-                }
-            } else {
-                std::cout << "[2] ec = " << ec << std::endl;
-            }
+            return;
         }
-    } catch (const std::exception& ex) {
-        std::cout << "[exception]: " << ex.what() << std::endl;
-        return EXIT_FAILURE;
-    }
 
-    return EXIT_SUCCESS;
-}
+        m_started = true;
+
+        m_timer.expires_from_now(std::chrono::milliseconds(ms));
+        m_timer.async_wait(
+            [this, cb=std::move(cb)]
+            (const error_code &ec) mutable {
+                m_started = false;
+                cb(ec);
+            }
+        );
+    }
+    void stop() {
+        m_started = false;
+        m_timer.cancel();
+    }
+    bool started() const { return m_started; }
+
+    boost::asio::steady_timer m_timer;
+    bool m_started;
+};
 
 /***************************************************************************/
+
+timer::timer(boost::asio::io_context &ios)
+    :pimpl{std::make_shared<impl>(ios)}
+{}
+
+/***************************************************************************/
+
+void timer::start(std::size_t ms, timeout_handler cb) { return pimpl->start(ms, std::move(cb)); }
+void timer::stop() { return pimpl->stop(); }
+bool timer::started() const { return pimpl->started(); }
+
+
+/***************************************************************************/
+
+} // ns easynet

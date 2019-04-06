@@ -29,70 +29,57 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <easynet/socket.hpp>
-#include "../tests_config.hpp"
+#ifndef __easynet__timer_hpp
+#define __easynet__timer_hpp
 
-#include <iostream>
-#include <boost/format.hpp>
+#include <easynet/typedefs.hpp>
+
+#include <memory>
+#include <functional>
+
+namespace easynet {
 
 /***************************************************************************/
 
-struct client_impl: std::enable_shared_from_this<client_impl> {
-	client_impl(boost::asio::io_service& ios, const std::string& ip, boost::uint16_t port)
-		:socket(ios)
-	{
-		socket.connect(ip, port);
-	}
+struct timer {
+    timer(const timer &) = delete;
+    timer& operator= (const timer &) = delete;
+    timer(timer &&) = default;
+    timer& operator= (timer &&) = default;
 
-	void write() {
-		easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
-		strcpy(easynet::buffer_data(buf), "data string");
+    timer(boost::asio::io_context &ios);
 
-		socket.async_write(buf, shared_from_this(), &client_impl::write_handler);
-	}
-	void read() {
-		socket.async_read(tests_config::buffer_size, shared_from_this(), &client_impl::read_handler);
-	}
+    using timeout_handler = std::function<void(const error_code &ec)>;
+    void start(std::size_t ms, timeout_handler cb);
+    template<typename Obj>
+    void start(std::size_t ms, Obj* o, void(Obj::*m)(const error_code &ec)) {
+        start(
+             ms
+            ,[this, o, m]
+             (const error_code &ec)
+             { (o->*m)(ec); }
+        );
+    }
+    template<typename Obj>
+    void start(std::size_t ms, std::shared_ptr<Obj> o, void(Obj::*m)(const error_code &ec)) {
+        start(
+             ms
+            ,[this, o=std::move(o), m]
+             (const error_code &ec)
+             { (o.get()->*m)(ec); }
+        );
+    }
 
-	void write_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t wr) {
-		std::cout
-		<< boost::format("write_handler(): %1%, %2%, ec = %3%")
-			% easynet::buffer_data(buf)
-			% wr
-			% ec.message()
-		<< std::endl;
-	}
-
-	void read_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t rd) {
-		std::cout
-		<< boost::format("read_handler(): %1%, %2%, ec = %3%")
-			% easynet::buffer_data(buf)
-			% rd
-			% ec.message()
-		<< std::endl;
-	}
+    void stop();
+    bool started() const;
 
 private:
-	easynet::socket socket;
+    struct impl;
+    std::shared_ptr<impl> pimpl;
 };
 
 /***************************************************************************/
 
-int main(int, char**) {
-	try {
-		boost::asio::io_service ios;
+} // ns easynet
 
-		client_impl client(ios, tests_config::ip, tests_config::port);
-		client.write();
-		client.read();
-
-		ios.run();
-	} catch(const std::exception &ex) {
-		std::cout << boost::format("[exception]: %1%") % ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	return EXIT_SUCCESS;
-}
-
-/***************************************************************************/
+#endif // __easynet__timer_hpp

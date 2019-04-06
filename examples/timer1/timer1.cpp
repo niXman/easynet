@@ -29,10 +29,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <easynet/socket.hpp>
-#include <easynet/acceptor.hpp>
-
-#include "../tests_config.hpp"
+#include <easynet/timer.hpp>
 
 #include <boost/asio/io_context.hpp>
 
@@ -40,30 +37,46 @@
 
 /***************************************************************************/
 
+struct timer_object: std::enable_shared_from_this<timer_object> {
+    timer_object(boost::asio::io_context &ios)
+        :m_timer{ios}
+    {}
+
+    void start() {
+        m_timer.start(
+             1000
+            ,[this, self=shared_from_this()]
+             (const easynet::error_code &ec)
+             { on_timeout_0(ec); }
+        );
+    }
+
+    void on_timeout_0(const easynet::error_code &ec) {
+        std::cout << "on_timeout_0(): ec=" << ec << std::endl;
+
+        m_timer.start(1000, shared_from_this(), &timer_object::on_timeout_1);
+    }
+    void on_timeout_1(const easynet::error_code &ec) {
+        std::cout << "on_timeout_1(): ec=" << ec << std::endl;
+
+    }
+
+    easynet::timer m_timer;
+};
+
+/***************************************************************************/
+
 int main(int, char**) {
     try {
         boost::asio::io_context ios;
-        easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
 
-        while ( true ) {
-            char buf[tests_config::buffer_size] = "\0";
-            easynet::endpoint ep;
-            easynet::error_code ec;
-            auto socket = acceptor.accept(ec, &ep);
-
-            std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
-            if ( !ec ) {
-                socket.read(buf, tests_config::buffer_size, ec);
-                if ( !ec ) {
-                    socket.write(buf, tests_config::buffer_size, ec);
-                } else {
-                    std::cout << "[1] ec = " << ec << std::endl;
-                }
-            } else {
-                std::cout << "[2] ec = " << ec << std::endl;
-            }
+        {
+            auto timer = std::make_shared<timer_object>(ios);
+            timer->start();
         }
-    } catch (const std::exception& ex) {
+
+        ios.run();
+    } catch (const std::exception &ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
         return EXIT_FAILURE;
     }

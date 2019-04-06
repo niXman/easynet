@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -31,82 +31,73 @@
 
 #include <easynet/socket.hpp>
 #include <easynet/acceptor.hpp>
+#include "../tests_config.hpp"
+
+#include <boost/asio/io_context.hpp>
 
 #include <iostream>
-#include <boost/format.hpp>
-
-#include "../tests_config.hpp"
 
 /***************************************************************************/
 
-struct session: std::enable_shared_from_this<session>, private boost::noncopyable {
-	session(easynet::socket_ptr sock)
-		:socket(sock)
+struct session: std::enable_shared_from_this<session> {
+    session(easynet::socket sock)
+        :socket(std::move(sock))
 	{}
 	virtual ~session() {}
 
 	void start() {
-		socket->async_read(tests_config::buffer_size, shared_from_this(), &session::read_handler);
+        socket.async_read(tests_config::buffer_size, shared_from_this(), &session::read_handler);
 	}
 
 	void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
 		std::cout
-		<< boost::format("read_handler: ec = %1%, buf = %2%, rd = %3%")
-			% ec.message()
-			% buf.data.get()
-			% rd
-		<< std::endl;
+        << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
+        << std::endl;
 
 		if ( !ec ) {
-			socket->async_write(buf, shared_from_this(), &session::write_handler);
+            socket.async_write(buf, shared_from_this(), &session::write_handler);
 		} else {
-			std::cout << boost::format("[2] ec = %1%") % ec << std::endl;
+            std::cout << "[2] ec = " << ec << std::endl;
 		}
 	}
 	void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
-		std::cout
-		<< boost::format("write_handler: ec = %1%, buf = %2%, wr = %3%")
-			% ec.message()
-			% buf.data.get()
-			% wr
-		<< std::endl;
+        std::cout
+        << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
+        << std::endl;
 
 		if ( !ec ) {
 			start();
 		} else {
-			std::cout << boost::format("[3] ec = %1%") % ec << std::endl;
+            std::cout << "[3] ec = " << ec << std::endl;
 		}
 	}
 
 private:
-	easynet::socket_ptr socket;
+    easynet::socket socket;
 };
 
 /***************************************************************************/
 
-struct server: private boost::noncopyable {
-	server(boost::asio::io_service& ios, const char* ip, boost::uint16_t port)
+struct server {
+    server(boost::asio::io_context& ios, const char* ip, boost::uint16_t port)
 		:acceptor(ios, ip, port)
-	{
-		acceptor.async_accept(this, &server::on_accept);
-	}
+	{}
+
+    void start() {
+        acceptor.async_accept(this, &server::on_accept);
+    }
 
 	void on_accept(
-		easynet::socket_ptr socket,
-		const boost::asio::ip::tcp::endpoint& ep,
+        easynet::socket socket,
+        const easynet::endpoint& ep,
 		const boost::system::error_code& ec)
 	{
-		std::cout
-		<< boost::format("new connection from: %1%, ec = %2%")
-			% ep.address().to_string()
-			% ec.message()
-		<< std::endl;
-
+        std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
 		if ( !ec ) {
-			std::shared_ptr<session> s = std::make_shared<session>(socket);
+            auto s = std::make_shared<session>(std::move(socket));
 			s->start();
 		} else {
-			std::cout << boost::format("[1] ec = %1%") % ec << std::endl;
+            std::cout << "[1] ec = " << ec << std::endl;
 		}
 	}
 
@@ -118,11 +109,13 @@ private:
 
 int main() {
 	try {
-		boost::asio::io_service ios;
+        boost::asio::io_context ios;
 		server server(ios, tests_config::ip, tests_config::port);
+        server.start();
+
 		ios.run();
 	} catch (const std::exception &ex) {
-		std::cout << boost::format("[exception]: %1%") % ex.what() << std::endl;
+        std::cout << "[exception]: " << ex.what() << std::endl;
 		return EXIT_FAILURE;
 	}
 

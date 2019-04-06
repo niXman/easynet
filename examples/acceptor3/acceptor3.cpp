@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -34,34 +34,30 @@
 
 #include "../tests_config.hpp"
 
+#include <boost/asio/io_context.hpp>
+
 #include <iostream>
-#include <boost/format.hpp>
 
 /***************************************************************************/
 
 void accept_handler(
-	easynet::socket_ptr socket,
+	easynet::socket sock,
 	const easynet::endpoint& ep,
 	const easynet::error_code& ec
 ) {
 	char buf[tests_config::buffer_size] = "\0";
 
-	std::cout
-	<< boost::format("new connection from: %1%, ec = %2%")
-		% ep.address().to_string()
-		% ec.message()
-	<< std::endl;
-
+    std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
 	if ( !ec ) {
 		easynet::error_code ec;
-		socket->read(buf, tests_config::buffer_size, ec);
+		sock.read(buf, tests_config::buffer_size, ec);
 		if ( !ec ) {
-			socket->write(buf, tests_config::buffer_size, ec);
+			sock.write(buf, tests_config::buffer_size, ec);
 		} else {
-			std::cout << boost::format("[1] ec = %1%") % ec << std::endl;
+            std::cout << "[1] ec = " << ec << std::endl;
 		}
 	} else {
-		std::cout << boost::format("[2] ec = %1%") % ec << std::endl;
+        std::cout << "[2] ec = " << ec << std::endl;
 	}
 }
 
@@ -69,12 +65,14 @@ void accept_handler(
 
 int main(int, char**) {
 	try {
-		boost::asio::io_service ios;
+        boost::asio::io_context ios;
+
 		easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
-		acceptor.async_accept(&accept_handler);
+        acceptor.async_accept(&accept_handler);
+
 		ios.run();
 	} catch (const std::exception& ex) {
-		std::cout << boost::format("[exception]: %1%") % ex.what() << std::endl;
+        std::cout << "[exception]: " << ex.what() << std::endl;
 		return EXIT_FAILURE;
 	}
 

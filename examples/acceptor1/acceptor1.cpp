@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -34,47 +34,43 @@
 
 #include "../tests_config.hpp"
 
+#include <boost/asio/io_context.hpp>
+
 #include <iostream>
-#include <boost/format.hpp>
 
 /***************************************************************************/
 
 int main(int, char**) {
-	try {
-		boost::asio::io_service ios;
-		easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
+    try {
+        boost::asio::io_context ios;
+        easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
 
-		while ( true ) {
-			char buf[tests_config::buffer_size] = "\0";
-			easynet::endpoint ep;
-			easynet::error_code ec;
+        while ( true ) {
+            char buf[tests_config::buffer_size] = "\0";
+            easynet::endpoint ep;
+            easynet::error_code ec;
 
-			easynet::socket socket(ios);
-			acceptor.accept(socket, ep, ec);
+            easynet::socket socket(ios);
+            acceptor.accept(socket, ec, &ep);
 
-			std::cout
-			<< boost::format("new connection from: %1%, ec = %2%")
-				% ep.address().to_string()
-				% ec.message()
-			<< std::endl;
+            std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
+            if ( !ec ) {
+                socket.read(buf, tests_config::buffer_size, ec);
+                if ( !ec ) {
+                    socket.write(buf, tests_config::buffer_size, ec);
+                } else {
+                    std::cout << "[1] ec = " << ec << std::endl;
+                }
+            } else {
+                std::cout << "[2] ec = " << ec << std::endl;
+            }
+        }
+    } catch (const std::exception &ex) {
+        std::cout << "[exception]: " << ex.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
-			if ( !ec ) {
-				socket.read(buf, tests_config::buffer_size, ec);
-				if ( !ec ) {
-					socket.write(buf, tests_config::buffer_size, ec);
-				} else {
-					std::cout << boost::format("[1] ec = %1%") % ec << std::endl;
-				}
-			} else {
-				std::cout << boost::format("[2] ec = %1%") % ec << std::endl;
-			}
-		}
-	} catch (const std::exception& ex) {
-		std::cout << boost::format("[exception]: %1%") % ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 /***************************************************************************/

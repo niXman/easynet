@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -29,23 +29,54 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _easynet__make_custom_preallocated_handler_hpp
-#define _easynet__make_custom_preallocated_handler_hpp
+#include <easynet/socket.hpp>
+#include "../tests_config.hpp"
 
-#include <easynet/preallocated_handler_invoker.hpp>
+#include <boost/asio/io_context.hpp>
 
-namespace easynet {
+#include <iostream>
 
 /***************************************************************************/
 
-template <typename Allocator, typename F>
-inline preallocated_handler_invoker<Allocator, F>
-make_custom_preallocated_handler(Allocator& allocator, F &&f) {
-	return preallocated_handler_invoker<Allocator, F>(allocator, f);
+void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
+    std::cout
+    << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
+    << std::endl;
+}
+
+void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
+    std::cout
+    << "read_handler(): " << easynet::buffer_data(buf) << ", " << rd << ", ec = " << ec
+    << std::endl;
 }
 
 /***************************************************************************/
 
-} // namespace easynet
+int main(int, char**) {
+    try {
+        boost::asio::io_context ios;
+        easynet::socket socket(ios);
 
-#endif // _easynet__make_custom_preallocated_handler_hpp
+        socket.connect(tests_config::ip, tests_config::port);
+
+        for ( auto idx = 0u; idx < tests_config::iterations; ++idx ) {
+            easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
+            std::snprintf(easynet::buffer_data(buf), easynet::buffer_size(buf), "item: %u", idx);
+
+            socket.async_write(std::move(buf), write_handler);
+        }
+
+        for ( auto idx = 0u; idx < tests_config::iterations; ++idx ) {
+            socket.async_read(tests_config::buffer_size, read_handler);
+        }
+
+        ios.run();
+    } catch(const std::exception &ex) {
+        std::cout << "[exception]: " << ex.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/***************************************************************************/

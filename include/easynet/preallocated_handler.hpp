@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -29,59 +29,22 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <easynet/socket.hpp>
-#include "../tests_config.hpp"
+#ifndef __easynet__preallocated_handler_hpp
+#define __easynet__preallocated_handler_hpp
 
-#include <iostream>
-#include <boost/format.hpp>
+#include <easynet/preallocated_handler_invoker.hpp>
+
+namespace easynet {
 
 /***************************************************************************/
 
-void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
-	std::cout
-	<< boost::format("write_handler(): %1%, %2%, ec = %3%")
-		% easynet::buffer_data(buf)
-		% wr
-		% ec
-	<< std::endl;
-}
-
-void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
-	std::cout
-	<< boost::format("read_handler(): %1%, %2%, ec = %3%")
-		% easynet::buffer_data(buf)
-		% rd
-		% ec
-	<< std::endl;
+template <typename Allocator, typename F>
+auto make_preallocated_handler(Allocator& allocator, F f) {
+    return preallocated_handler_invoker<Allocator, F>(allocator, std::move(f));
 }
 
 /***************************************************************************/
 
-int main(int, char**) {
-	try {
-		boost::asio::io_service ios;
-		easynet::socket socket(ios);
+} // namespace easynet
 
-		socket.connect(tests_config::ip, tests_config::port);
-
-		for ( size_t idx = 0; idx < tests_config::iterations; ++idx ) {
-			easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
-			sprintf(easynet::buffer_data(buf), "item: %zu", idx);
-
-			socket.async_write(buf, &write_handler);
-		}
-
-		for ( size_t idx = 0; idx < tests_config::iterations; ++idx ) {
-			socket.async_read(tests_config::buffer_size, &read_handler);
-		}
-
-		ios.run();
-	} catch(const std::exception &ex) {
-		std::cout << boost::format("[exception]: %1%") % ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	return EXIT_SUCCESS;
-}
-
-/***************************************************************************/
+#endif // __easynet__preallocated_handler_hpp

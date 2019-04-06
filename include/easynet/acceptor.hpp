@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -29,97 +29,81 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _easynet__acceptor_hpp
-#define _easynet__acceptor_hpp
+#ifndef __easynet__acceptor_hpp
+#define __easynet__acceptor_hpp
 
 #include <easynet/socket.hpp>
+
+#include <memory>
+#include <functional>
 
 namespace easynet {
 
 /***************************************************************************/
 
-struct acceptor: private boost::noncopyable {
-	acceptor(boost::asio::io_service& ios, const std::string& ip, boost::uint16_t port)
-		:acc(ios, endpoint(boost::asio::ip::address::from_string(ip), port)),
-		run(true)
-	{}
+struct acceptor {
+    acceptor(const acceptor &) = delete;
+    acceptor& operator= (const acceptor &) = delete;
+    acceptor(acceptor &&) = default;
+    acceptor& operator= (acceptor &&) = default;
 
-	boost::asio::io_service& get_io_service() { return acc.get_io_service(); }
+    acceptor(boost::asio::io_context& ios, const std::string& ip, std::uint16_t port);
 
-	void cancel() { acc.cancel(); }
-	void cancel(boost::system::error_code& ec) { acc.cancel(ec); }
-	void close() { acc.close(); }
-	void close(boost::system::error_code& ec) { acc.close(ec); }
+    boost::asio::io_context& get_io_context();
 
-	void accept(socket& socket, endpoint& ep, error_code& ec) {
-		acc.accept(socket.get_socket(), ep, ec);
-	}
+    void cancel();
+    void cancel(error_code& ec);
+    void close();
+    void close(error_code& ec);
 
-	socket_ptr accept(endpoint& ep, error_code& ec) {
-		socket_ptr socket = std::make_shared<socket_ptr::element_type>(acc.get_io_service());
-		acc.accept(socket->get_socket(), ep, ec);
-		return socket;
-	}
+    void stop_accept();
+    void stop_accept(error_code& ec);
 
-	template<typename F>
-	void async_accept(socket_ptr socket, F &&f) {
-		run = true;
-		acc.async_accept(
-			 socket->get_socket()
-			,[this, socket, f](const boost::system::error_code& ec) {
-					f(socket, (!ec ? socket->get_socket().remote_endpoint() : endpoint()), ec);
-			 }
-		);
-	}
+    void accept(socket &sock, error_code& ec, endpoint *ep = nullptr);
+    socket accept(error_code& ec, endpoint *ep = nullptr);
 
-	template<typename F>
-	void async_accept(F &&f) {
-		socket_ptr socket(new socket_ptr::element_type(acc.get_io_service()));
-		async_accept(socket, f);
-	}
+    template<typename F>
+    void async_accept(socket sock, F f) {
+        p_async_accept(
+             std::move(sock)
+            ,[f=std::move(f)](socket sock, const error_code& ec) mutable
+             { f(std::move(sock), sock.remote_endpoint(), ec); }
+        );
+    }
 
-	void async_accept(void(*f)(socket_ptr, const endpoint&, const error_code&)) {
-		async_accept(
-			[f](socket_ptr socket, const endpoint &ep,const error_code &ec) {
-				f(socket, ep, ec);
-			}
-		);
-	}
+    template<typename F>
+    void async_accept(F f) {
+        socket sock(get_io_context());
+        async_accept(std::move(sock), std::move(f));
+    }
 
-	template<typename Obj>
-	void async_accept(Obj* o, void(Obj::*m)(socket_ptr, const endpoint&, const error_code&)) {
-		async_accept(
-			[o, m](socket_ptr socket, const endpoint &ep,const error_code &ec) {
-				(o->*m)(socket, ep, ec);
-			}
-		);
-	}
+    template<typename Obj>
+    void async_accept(Obj* o, void(Obj::*m)(socket, const endpoint&, const error_code&)) {
+        async_accept(
+            [o, m](socket sock, const endpoint &ep,const error_code &ec)
+            { (o->*m)(std::move(sock), ep, ec); }
+        );
+    }
 
-	template<typename Obj>
-	void async_accept(std::shared_ptr<Obj> o, void(Obj::*m)(socket_ptr, const endpoint&, const error_code&)) {
-		async_accept(
-			[o, m](socket_ptr socket, const endpoint &ep,const error_code &ec) {
-				(o.get()->*m)(socket, ep, ec);
-			}
-		);
-	}
-
-	void stop_accept() {
-		run = false;
-		acc.cancel();
-	}
-	void stop_accept(error_code& ec) {
-		run = false;
-		acc.cancel(ec);
-	}
+    template<typename Obj>
+    void async_accept(std::shared_ptr<Obj> o, void(Obj::*m)(socket, const endpoint&, const error_code&)) {
+        async_accept(
+            [o=std::move(o), m](socket sock, const endpoint &ep,const error_code &ec)
+            { (o.get()->*m)(std::move(sock), ep, ec); }
+        );
+    }
 
 private:
-	boost::asio::ip::tcp::acceptor acc;
-	bool run;
+    using accept_cb = std::function<void(socket, const error_code &ec)>;
+    void p_async_accept(socket sock, accept_cb cb);
+
+private:
+    struct impl;
+    std::shared_ptr<impl> pimpl;
 };
 
 /***************************************************************************/
 
 } // namespace easynet
 
-#endif // _easynet__acceptor_hpp
+#endif // __easynet__acceptor_hpp

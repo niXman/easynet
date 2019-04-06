@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -29,8 +29,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef _easynet__shared_buffer_hpp
-#define _easynet__shared_buffer_hpp
+#ifndef __easynet__shared_buffer_hpp
+#define __easynet__shared_buffer_hpp
 
 #include <memory>
 #include <cstring>
@@ -41,69 +41,98 @@ namespace easynet {
 /***************************************************************************/
 
 struct shared_buffer {
-	std::shared_ptr<char> data;
-	size_t size;
+    std::shared_ptr<char> data;
+    size_t size;
 };
 
 /***************************************************************************/
 
-inline shared_buffer buffer_alloc(size_t size) {
-	if ( !size ) return shared_buffer();
-	return { {new char[size], std::default_delete<char[]>()}, size };
+inline shared_buffer buffer_alloc(std::size_t size) {
+    if ( !size ) { return {}; }
+
+    return {
+         {new char[size], std::default_delete<char[]>()}
+        ,size
+    };
 }
 
 inline shared_buffer buffer_clone(const shared_buffer& buffer) {
-	if ( !buffer.size ) return shared_buffer();
-	shared_buffer result = { {new char[buffer.size], std::default_delete<char[]>()}, buffer.size };
-	std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
-	return result;
+    if ( !buffer.size ) { return {}; }
+
+    shared_buffer result = {
+         {new char[buffer.size], std::default_delete<char[]>()}
+        ,buffer.size
+    };
+    std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
+
+    return result;
 }
 
-inline shared_buffer buffer_clone(const shared_buffer& buffer, size_t size) {
-	assert(size <= buffer.size);
-	shared_buffer result = { {new char[size], std::default_delete<char[]>()}, size };
+inline shared_buffer buffer_clone(const shared_buffer& buffer, std::size_t size) {
+    assert(size <= buffer.size);
+
+    shared_buffer result = {
+         {new char[size], std::default_delete<char[]>()}
+        ,size
+    };
 	std::memcpy(result.data.get(), buffer.data.get(), size);
+
 	return result;
 }
 
-inline shared_buffer buffer_clone(const shared_buffer& buffer, size_t from, size_t size) {
-	assert(size > 0 && size <= buffer.size && from <= buffer.size && from+size <= buffer.size);
-	shared_buffer result = { {new char[size], std::default_delete<char[]>()}, size };
-	std::memcpy(result.data.get(), buffer.data.get()+from, size);
+inline shared_buffer buffer_clone(const shared_buffer& buffer, std::size_t from, std::size_t size) {
+    assert(size > 0 && size <= buffer.size && from <= buffer.size && from+size <= buffer.size);
+
+    shared_buffer result = {
+         {new char[size], std::default_delete<char[]>()}
+        ,size
+    };
+    std::memcpy(result.data.get(), buffer.data.get()+from, size);
+
 	return result;
 }
 
 inline shared_buffer buffer_clone(const void* ptr, size_t size) {
-	assert(ptr && size);
-	shared_buffer result = { {new char[size], std::default_delete<char[]>()}, size };
-	std::memcpy(result.data.get(), ptr, size);
-	return result;
+    assert(ptr && size);
+
+    shared_buffer result = {
+         {new char[size], std::default_delete<char[]>()}
+        ,size
+    };
+    std::memcpy(result.data.get(), ptr, size);
+
+    return result;
 }
 
-inline shared_buffer buffer_shift(const shared_buffer& buffer, size_t bytes) {
-	shared_buffer result = {
-		{buffer.data, buffer.data.get()+bytes}
-		,buffer.size-bytes
-	};
-	return result;
+inline shared_buffer buffer_shift(const shared_buffer& buffer, std::size_t bytes) {
+    shared_buffer result = {
+        {buffer.data, buffer.data.get()+bytes}
+        ,buffer.size-bytes
+    };
+
+    return result;
 }
 
 /***************************************************************************/
 
-inline size_t buffer_size(const shared_buffer& buffer) {
-	return buffer.size;
+inline std::size_t buffer_size(const shared_buffer& buffer) {
+    return buffer.size;
 }
 
-inline char* buffer_data(const shared_buffer& buffer) {
-	return (char*)buffer.data.get();
+inline const char* buffer_data(const shared_buffer& buffer) {
+    return static_cast<const char *>(buffer.data.get());
 }
 
-inline size_t buffer_refs(const shared_buffer& buffer) {
-	return buffer.data.use_count();
+inline char* buffer_data(shared_buffer& buffer) {
+    return static_cast<char *>(buffer.data.get());
+}
+
+inline std::size_t buffer_refs(const shared_buffer& buffer) {
+    return static_cast<std::size_t>(buffer.data.use_count());
 }
 
 /***************************************************************************/
 
 } // namespace easynet
 
-#endif // _easynet__shared_buffer_hpp
+#endif // __easynet__shared_buffer_hpp

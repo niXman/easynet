@@ -16,17 +16,12 @@ LIBS += \
     -pthread
 
 SOURCES += \
-    acceptor1.cpp \
+    timer1.cpp \
     \
-    ../../src/acceptor.cpp \
-    ../../src/socket.cpp \
     ../../src/timer.cpp
 
 HEADERS += \
-    ../../include/easynet/acceptor.hpp \
     ../../include/easynet/handler_allocator.hpp \
     ../../include/easynet/preallocated_handler.hpp \
     ../../include/easynet/preallocated_handler_invoker.hpp \
-    ../../include/easynet/shared_buffer.hpp \
-    ../../include/easynet/socket.hpp \
-    ../../include/easynet/typedefs.hpp
+    ../../include/easynet/timer.hpp

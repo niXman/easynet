@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013,2014 niXman (i dotty nixman doggy gmail dotty com)
+// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -32,65 +32,62 @@
 #include <easynet/socket.hpp>
 #include "../tests_config.hpp"
 
+#include <boost/asio/io_context.hpp>
+
 #include <iostream>
-#include <boost/format.hpp>
 
 /***************************************************************************/
 
 struct client_impl {
-	client_impl(boost::asio::io_service& ios, const std::string& ip, boost::uint16_t port)
-		:socket(ios)
-	{
-		socket.connect(ip, port);
-	}
+    client_impl(boost::asio::io_context& ios, const char *ip, boost::uint16_t port)
+        :socket(ios)
+    {
+        socket.connect(ip, port);
+    }
 
-	void write() {
-		easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
-		strcpy(easynet::buffer_data(buf), "data string");
+    void write() {
+        easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
+        std::strcpy(easynet::buffer_data(buf), "some string");
 
-		socket.async_write(buf, this, &client_impl::write_handler);
-	}
-	void read() {
-		socket.async_read(tests_config::buffer_size, this, &client_impl::read_handler);
-	}
+        socket.async_write(buf, this, &client_impl::write_handler);
+    }
+    void read() {
+        socket.async_read(tests_config::buffer_size, this, &client_impl::read_handler);
+    }
 
-	void write_handler(const easynet::error_code& e, easynet::shared_buffer buf, size_t wr) {
-		std::cout
-		<< boost::format("write_handler(): %2%, %1%, ec = %3%")
-			% easynet::buffer_data(buf)
-			% wr
-			% e.message().c_str()
-		<< std::endl;
-	}
+    void write_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t wr) {
+        std::cout
+        << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
+        << std::endl;
+    }
 
-	void read_handler(const easynet::error_code& e, easynet::shared_buffer buf, size_t rd) {
-		std::cout
-		<< boost::format("read_handler(): %1%, %2%, ec = %3%")
-			% easynet::buffer_data(buf)
-			% rd
-			% e.message().c_str()
-		<< std::endl;
-	}
+    void read_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t rd) {
+        std::cout
+        << "read_handler(): " << easynet::buffer_data(buf) << ", " << rd << ", ec = " << ec
+        << std::endl;
+    }
 
 private:
-	easynet::socket socket;
+    easynet::socket socket;
 };
 
 /***************************************************************************/
 
 int main(int, char**) {
-	try {
-		boost::asio::io_service ios;
-		client_impl client(ios, tests_config::ip, tests_config::port);
-		client.write();
-		client.read();
-		ios.run();
-	} catch(const std::exception &ex) {
-		std::cout << boost::format("[exception]: %1%") % ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
+    try {
+        boost::asio::io_context ios;
+        client_impl client(ios, tests_config::ip, tests_config::port);
 
-	return EXIT_SUCCESS;
+        client.write();
+        client.read();
+
+        ios.run();
+    } catch(const std::exception &ex) {
+        std::cout << "[exception]: " << ex.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }
 
 /***************************************************************************/
