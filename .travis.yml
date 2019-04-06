@@ -9,7 +9,7 @@ sudo: required
 
 compiler:
   - gcc
-  - clang
+#  - clang
 
 notifications:
  email:
@@ -28,12 +28,12 @@ before_install:
   - sudo cp -r boost_1_64_0/boost /usr/local/include
 
 install:
-  - export CC=gcc-7
-  - export CXX=g++-7
-  - g++ -v
   - cd $TRAVIS_BUILD_DIR/examples
   - for it in $(ls); do cd $it && qmake; cd ..; done
 
 script:
+  - export CC=gcc-7
+  - export CXX=g++-7
+  - `$CXX -v`
   - cd $TRAVIS_BUILD_DIR/examples
   - for it in $(ls); do cd $it && make; cd ..; done
