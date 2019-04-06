@@ -2,9 +2,14 @@ language: cpp
 
 os:
   - linux
+#  - osx
+
+dist: trusty
+sudo: required
 
 compiler:
   - gcc
+  - clang
 
 notifications:
  email:
@@ -12,20 +17,17 @@ notifications:
    on_failure: always
 
 before_install:
-  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-  - sudo apt-get update
-  - if [ "$CXX" = "g++" ]; then sudo apt-get install g++-4.9 libboost-dev qt4-qmake; fi
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-4.9" CC="gcc-4.9"; fi
-  - if [[ -f /usr/bin/g++ ]]; then sudo rm /usr/bin/g++; fi
-  - sudo ln /usr/bin/g++-4.9 /usr/bin/g++
-  - wget http://sourceforge.net/projects/boost/files/boost/1.57.0/boost_1_57_0.tar.bz2
-  - tar jxf boost_1_57_0.tar.bz2
-  - cd boost_1_57_0
-  - ./bootstrap.sh
-  - sudo ./bjam release install -d0 --with-context --with-coroutine --with-system --prefix=/usr/local -j4
-  - sudo ldconfig
+  - if [[ $TRAVIS_OS_NAME == linux ]]; then sudo /etc/init.d/postgresql stop; fi
+  - if [[ $TRAVIS_OS_NAME == linux ]]; then sudo apt-get remove postgresql-9.* -y; fi
+  - if [[ $TRAVIS_OS_NAME == linux ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
+  - if [[ $TRAVIS_OS_NAME == linux ]]; then sudo apt-get update -q; fi
+  - if [[ $TRAVIS_OS_NAME == linux ]]; then sudo apt-get upgrade -y; fi
+  - wget http://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.bz2
+  - tar -jxf boost_1_64_0.tar.bz2
+  - sudo cp -r boost_1_64_0/boost /usr/local/include
 
 install:
+  - g++ -v
   - cd $TRAVIS_BUILD_DIR/examples
   - for it in $(ls); do cd $it && qmake; cd ..; done
 
