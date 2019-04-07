@@ -40,35 +40,35 @@
 
 struct client_impl: std::enable_shared_from_this<client_impl> {
     client_impl(boost::asio::io_context& ios, const char *ip, std::uint16_t port)
-		:socket(ios)
-	{
+        :socket(ios)
+    {
         socket.connect(ip, port);
-	}
+    }
 
-	void write() {
-		easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
+    void write() {
+        easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
         std::strcpy(easynet::buffer_data(buf), "data string");
 
-		socket.async_write_some(buf, shared_from_this(), &client_impl::write_handler);
-	}
-	void read() {
-		socket.async_read_some(tests_config::buffer_size, shared_from_this(), &client_impl::read_handler);
-	}
+        socket.async_write_some(buf, shared_from_this(), &client_impl::write_handler);
+    }
+    void read() {
+        socket.async_read_some(tests_config::buffer_size, shared_from_this(), &client_impl::read_handler);
+    }
 
     void write_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t wr) {
         std::cout
         << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
         << std::endl;
 
-		if ( !ec ) {
-			if ( wr != easynet::buffer_size(buf) ) {
-				easynet::shared_buffer nbuf = easynet::buffer_shift(buf, wr);
+        if ( !ec ) {
+            if ( wr != easynet::buffer_size(buf) ) {
+                easynet::shared_buffer nbuf = easynet::buffer_shift(buf, wr);
                 socket.async_write_some(std::move(nbuf), shared_from_this(), &client_impl::write_handler);
-			}
-		} else {
+            }
+        } else {
             std::cout << "[1] ec = " << ec << std::endl;
-		}
-	}
+        }
+    }
 
     void read_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t rd) {
         std::cout
@@ -83,31 +83,31 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
         } else {
             std::cout << "[2] ec = " << ec << std::endl;
         }
-	}
+    }
 
 private:
-	easynet::socket socket;
+    easynet::socket socket;
 };
 
 /***************************************************************************/
 
 int main(int, char**) {
-	try {
+    try {
         boost::asio::io_context ios;
 
-		{
+        {
             auto client = std::make_shared<client_impl>(ios, tests_config::ip, tests_config::port);
-			client->write();
-			client->read();
-		}
+            client->write();
+            client->read();
+        }
 
-		ios.run();
-	} catch (const std::exception &ex) {
+        ios.run();
+    } catch (const std::exception &ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
+        return EXIT_FAILURE;
+    }
 
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 /***************************************************************************/

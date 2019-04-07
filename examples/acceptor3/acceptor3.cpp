@@ -40,43 +40,39 @@
 
 /***************************************************************************/
 
-void accept_handler(
-	easynet::socket sock,
-	const easynet::endpoint& ep,
-	const easynet::error_code& ec
-) {
-	char buf[tests_config::buffer_size] = "\0";
+void accept_handler(easynet::socket sock, const easynet::endpoint &ep, const easynet::error_code &ec) {
+    char buf[tests_config::buffer_size] = "\0";
 
     std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
-	if ( !ec ) {
-		easynet::error_code ec;
-		sock.read(buf, tests_config::buffer_size, ec);
-		if ( !ec ) {
-			sock.write(buf, tests_config::buffer_size, ec);
-		} else {
+    if ( !ec ) {
+        easynet::error_code ec;
+        sock.read(buf, tests_config::buffer_size, ec);
+        if ( !ec ) {
+            sock.write(buf, tests_config::buffer_size, ec);
+        } else {
             std::cout << "[1] ec = " << ec << std::endl;
-		}
-	} else {
+        }
+    } else {
         std::cout << "[2] ec = " << ec << std::endl;
-	}
+    }
 }
 
 /***************************************************************************/
 
 int main(int, char**) {
-	try {
+    try {
         boost::asio::io_context ios;
 
-		easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
+        easynet::acceptor acceptor(ios, tests_config::ip, tests_config::port);
         acceptor.async_accept(&accept_handler);
 
-		ios.run();
-	} catch (const std::exception& ex) {
+        ios.run();
+    } catch (const std::exception& ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
+        return EXIT_FAILURE;
+    }
 
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 /***************************************************************************/

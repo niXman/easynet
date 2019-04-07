@@ -42,35 +42,35 @@
 struct session: std::enable_shared_from_this<session> {
     session(easynet::socket sock)
         :socket(std::move(sock))
-	{}
-	virtual ~session() {}
+    {}
+    virtual ~session() {}
 
-	void start() {
+    void start() {
         socket.async_read(tests_config::buffer_size, shared_from_this(), &session::read_handler);
-	}
+    }
 
-	void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
-		std::cout
+    void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
+        std::cout
         << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
         << std::endl;
 
-		if ( !ec ) {
+        if ( !ec ) {
             socket.async_write(buf, shared_from_this(), &session::write_handler);
-		} else {
+        } else {
             std::cout << "[2] ec = " << ec << std::endl;
-		}
-	}
-	void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
+        }
+    }
+    void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
         std::cout
         << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
         << std::endl;
 
-		if ( !ec ) {
-			start();
-		} else {
+        if ( !ec ) {
+            start();
+        } else {
             std::cout << "[3] ec = " << ec << std::endl;
-		}
-	}
+        }
+    }
 
 private:
     easynet::socket socket;
@@ -80,46 +80,42 @@ private:
 
 struct server {
     server(boost::asio::io_context& ios, const char* ip, boost::uint16_t port)
-		:acceptor(ios, ip, port)
-	{}
+        :acceptor(ios, ip, port)
+    {}
 
     void start() {
         acceptor.async_accept(this, &server::on_accept);
     }
 
-	void on_accept(
-        easynet::socket socket,
-        const easynet::endpoint& ep,
-		const boost::system::error_code& ec)
-	{
+    void on_accept(easynet::socket socket, const easynet::endpoint &ep, const easynet::error_code &ec) {
         std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
-		if ( !ec ) {
+        if ( !ec ) {
             auto s = std::make_shared<session>(std::move(socket));
-			s->start();
-		} else {
+            s->start();
+        } else {
             std::cout << "[1] ec = " << ec << std::endl;
-		}
-	}
+        }
+    }
 
 private:
-	easynet::acceptor acceptor;
+    easynet::acceptor acceptor;
 };
 
 /***************************************************************************/
 
 int main() {
-	try {
+    try {
         boost::asio::io_context ios;
-		server server(ios, tests_config::ip, tests_config::port);
+        server server(ios, tests_config::ip, tests_config::port);
         server.start();
 
-		ios.run();
-	} catch (const std::exception &ex) {
+        ios.run();
+    } catch (const std::exception &ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
+        return EXIT_FAILURE;
+    }
 
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 /***************************************************************************/

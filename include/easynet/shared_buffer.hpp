@@ -56,7 +56,7 @@ inline shared_buffer buffer_alloc(std::size_t size) {
     };
 }
 
-inline shared_buffer buffer_clone(const shared_buffer& buffer) {
+inline shared_buffer buffer_clone(const shared_buffer &buffer) {
     if ( !buffer.size ) { return {}; }
 
     shared_buffer result = {
@@ -68,19 +68,19 @@ inline shared_buffer buffer_clone(const shared_buffer& buffer) {
     return result;
 }
 
-inline shared_buffer buffer_clone(const shared_buffer& buffer, std::size_t size) {
+inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t size) {
     assert(size <= buffer.size);
 
     shared_buffer result = {
          {new char[size], std::default_delete<char[]>()}
         ,size
     };
-	std::memcpy(result.data.get(), buffer.data.get(), size);
+    std::memcpy(result.data.get(), buffer.data.get(), size);
 
-	return result;
+    return result;
 }
 
-inline shared_buffer buffer_clone(const shared_buffer& buffer, std::size_t from, std::size_t size) {
+inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t from, std::size_t size) {
     assert(size > 0 && size <= buffer.size && from <= buffer.size && from+size <= buffer.size);
 
     shared_buffer result = {
@@ -89,10 +89,10 @@ inline shared_buffer buffer_clone(const shared_buffer& buffer, std::size_t from,
     };
     std::memcpy(result.data.get(), buffer.data.get()+from, size);
 
-	return result;
+    return result;
 }
 
-inline shared_buffer buffer_clone(const void* ptr, size_t size) {
+inline shared_buffer buffer_clone(const void *ptr, size_t size) {
     assert(ptr && size);
 
     shared_buffer result = {
@@ -104,7 +104,7 @@ inline shared_buffer buffer_clone(const void* ptr, size_t size) {
     return result;
 }
 
-inline shared_buffer buffer_shift(const shared_buffer& buffer, std::size_t bytes) {
+inline shared_buffer buffer_shift(const shared_buffer &buffer, std::size_t bytes) {
     shared_buffer result = {
         {buffer.data, buffer.data.get()+bytes}
         ,buffer.size-bytes
@@ -115,19 +115,19 @@ inline shared_buffer buffer_shift(const shared_buffer& buffer, std::size_t bytes
 
 /***************************************************************************/
 
-inline std::size_t buffer_size(const shared_buffer& buffer) {
+inline std::size_t buffer_size(const shared_buffer &buffer) {
     return buffer.size;
 }
 
-inline const char* buffer_data(const shared_buffer& buffer) {
-    return static_cast<const char *>(buffer.data.get());
+inline const char* buffer_data(const shared_buffer &buffer) {
+    return buffer.data.get();
 }
 
-inline char* buffer_data(shared_buffer& buffer) {
-    return static_cast<char *>(buffer.data.get());
+inline char* buffer_data(shared_buffer &buffer) {
+    return buffer.data.get();
 }
 
-inline std::size_t buffer_refs(const shared_buffer& buffer) {
+inline std::size_t buffer_refs(const shared_buffer &buffer) {
     return static_cast<std::size_t>(buffer.data.use_count());
 }
 

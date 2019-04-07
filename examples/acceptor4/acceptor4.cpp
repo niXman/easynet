@@ -42,51 +42,47 @@
 
 struct server {
     server(boost::asio::io_context& ios, const char* ip, boost::uint16_t port)
-		:acceptor(ios, ip, port)
-	{
-		acceptor.async_accept(this, &server::on_accept);
-	}
+        :acceptor(ios, ip, port)
+    {
+        acceptor.async_accept(this, &server::on_accept);
+    }
 
-	void on_accept(
-        easynet::socket socket,
-        const easynet::endpoint& ep,
-		const boost::system::error_code& ec)
-	{
-		char buf[tests_config::buffer_size] = "\0";
+    void on_accept(easynet::socket socket, const easynet::endpoint& ep, const easynet::error_code &ec) {
+        char buf[tests_config::buffer_size] = "\0";
 
         std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
-		if ( !ec ) {
-			boost::system::error_code ec;
+        if ( !ec ) {
+            boost::system::error_code ec;
             socket.read(buf, tests_config::buffer_size, ec);
-			if ( !ec ) {
+            if ( !ec ) {
                 socket.write(buf, tests_config::buffer_size, ec);
-			} else {
+            } else {
                 std::cout << "[1] ec = " << ec << std::endl;
-			}
-		} else {
+            }
+        } else {
             std::cout << "[2] ec = " << ec << std::endl;
-		}
-	}
+        }
+    }
 
 private:
-	easynet::acceptor acceptor;
+    easynet::acceptor acceptor;
 };
 
 /***************************************************************************/
 
 int main(int, char**) {
-	try {
+    try {
         boost::asio::io_context ios;
 
-		server server(ios, tests_config::ip, tests_config::port);
+        server server(ios, tests_config::ip, tests_config::port);
 
-		ios.run();
-	} catch (const std::exception &ex) {
+        ios.run();
+    } catch (const std::exception &ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
-		return EXIT_FAILURE;
-	}
+        return EXIT_FAILURE;
+    }
 
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
 /***************************************************************************/
