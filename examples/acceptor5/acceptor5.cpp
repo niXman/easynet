@@ -49,7 +49,7 @@ struct session: std::enable_shared_from_this<session> {
         socket.async_read(tests_config::buffer_size, shared_from_this(), &session::read_handler);
     }
 
-    void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
+    void read_handler(const easynet::error_code& ec, easynet::shared_buffer buf, size_t rd) {
         std::cout
         << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
         << std::endl;
@@ -60,7 +60,7 @@ struct session: std::enable_shared_from_this<session> {
             std::cout << "[2] ec = " << ec << std::endl;
         }
     }
-    void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
+    void write_handler(const easynet::error_code& ec, easynet::shared_buffer buf, size_t wr) {
         std::cout
         << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
         << std::endl;
@@ -79,7 +79,7 @@ private:
 /***************************************************************************/
 
 struct server {
-    server(boost::asio::io_context& ios, const char* ip, boost::uint16_t port)
+    server(boost::asio::io_context &ios, const char *ip, boost::uint16_t port)
         :acceptor(ios, ip, port)
     {}
 
