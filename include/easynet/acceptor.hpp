@@ -63,18 +63,19 @@ struct acceptor {
     socket accept(error_code& ec, endpoint *ep = nullptr);
 
     template<typename F>
-    void async_accept(socket sock, F f) {
+    void async_accept(socket sock, F f, impl_holder holder = {}) {
         p_async_accept(
              std::move(sock)
             ,[f=std::move(f)](socket sock, const error_code& ec) mutable
              { f(std::move(sock), sock.remote_endpoint(), ec); }
+            ,std::move(holder)
         );
     }
 
     template<typename F>
-    void async_accept(F f) {
+    void async_accept(F f, impl_holder holder = {}) {
         socket sock(get_io_context());
-        async_accept(std::move(sock), std::move(f));
+        async_accept(std::move(sock), std::move(f), std::move(holder));
     }
 
     template<typename Obj>
@@ -87,15 +88,17 @@ struct acceptor {
 
     template<typename Obj>
     void async_accept(std::shared_ptr<Obj> o, void(Obj::*m)(socket, const endpoint&, const error_code&)) {
+        auto optr = o.get();
         async_accept(
-            [o=std::move(o), m](socket sock, const endpoint &ep,const error_code &ec)
-            { (o.get()->*m)(std::move(sock), ep, ec); }
+             [optr, m](socket sock, const endpoint &ep,const error_code &ec)
+             { (optr->*m)(std::move(sock), ep, ec); }
+            ,std::move(o)
         );
     }
 
 private:
     using accept_cb = std::function<void(socket, const error_code &ec)>;
-    void p_async_accept(socket sock, accept_cb cb);
+    void p_async_accept(socket sock, accept_cb cb, impl_holder holder);
 
 private:
     struct impl;

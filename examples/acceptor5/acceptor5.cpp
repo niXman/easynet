@@ -43,29 +43,28 @@ struct session: std::enable_shared_from_this<session> {
     session(easynet::socket sock)
         :socket(std::move(sock))
     {}
-    virtual ~session() {}
 
     void start() {
         socket.async_read(tests_config::buffer_size, shared_from_this(), &session::read_handler);
     }
 
-    void read_handler(const easynet::error_code& ec, easynet::shared_buffer buf, size_t rd) {
-        std::cout
-        << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
-        << std::endl;
-
+    void read_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t rd) {
         if ( !ec ) {
+            std::cout
+            << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
+            << std::endl;
+
             socket.async_write(buf, shared_from_this(), &session::write_handler);
         } else {
             std::cout << "[2] ec = " << ec << std::endl;
         }
     }
-    void write_handler(const easynet::error_code& ec, easynet::shared_buffer buf, size_t wr) {
-        std::cout
-        << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
-        << std::endl;
-
+    void write_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t wr) {
         if ( !ec ) {
+            std::cout
+            << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
+            << std::endl;
+
             start();
         } else {
             std::cout << "[3] ec = " << ec << std::endl;

@@ -37,6 +37,7 @@
 #include <cstdint>
 #include <string>
 #include <ostream>
+#include <memory>
 
 /***************************************************************************/
 
@@ -49,6 +50,8 @@ class io_context;
 namespace easynet {
 
 using error_code = boost::system::error_code;
+
+using impl_holder = std::shared_ptr<void>;
 
 /***************************************************************************/
 

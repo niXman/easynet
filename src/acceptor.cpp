@@ -77,11 +77,11 @@ struct acceptor::impl {
         return sock;
     }
 
-    void p_async_accept(socket sock, accept_cb cb) {
+    void p_async_accept(socket sock, accept_cb cb, impl_holder holder) {
         auto *sock_impl = static_cast<boost::asio::ip::tcp::socket*>(sock.get_impl_details());
         m_acc.async_accept(
              *sock_impl
-            ,[sock=std::move(sock), cb=std::move(cb)]
+            ,[sock=std::move(sock), cb=std::move(cb), holder=std::move(holder)]
              (const error_code &ec) mutable
              { cb(std::move(sock), ec); }
         );
@@ -111,7 +111,8 @@ void acceptor::stop_accept(error_code& ec) { return pimpl->stop_accept(ec); }
 void acceptor::accept(socket &sock, error_code& ec, endpoint* ep) { return pimpl->accept(sock, ec, ep); }
 socket acceptor::accept(error_code& ec, endpoint* ep) { return pimpl->accept(ec, ep); }
 
-void acceptor::p_async_accept(socket sock, accept_cb cb) { return pimpl->p_async_accept(std::move(sock), std::move(cb)); }
+void acceptor::p_async_accept(socket sock, accept_cb cb, impl_holder holder)
+{ return pimpl->p_async_accept(std::move(sock), std::move(cb), std::move(holder)); }
 
 /***************************************************************************/
 
