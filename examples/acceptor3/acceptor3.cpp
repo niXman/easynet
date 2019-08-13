@@ -40,7 +40,7 @@
 
 /***************************************************************************/
 
-void accept_handler(easynet::socket sock, const easynet::endpoint &ep, const easynet::error_code &ec) {
+void accept_handler(const easynet::error_code &ec, easynet::socket sock, const easynet::endpoint &ep, easynet::impl_holder) {
     char buf[tests_config::buffer_size] = "\0";
 
     std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;

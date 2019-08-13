@@ -248,13 +248,13 @@ struct socket::impl {
             ,make_preallocated_handler(
                  m_write_handler_allocator
                 ,[this, item, holder=std::move(holder)]
-                 (const error_code& ec, std::size_t wr)
-                 { write_handler(item, ec, wr); }
+                 (const error_code& ec, std::size_t wr) mutable
+                 { write_handler(item, ec, wr, std::move(holder)); }
             )
         );
     }
-    void write_handler(task_item *item, const error_code& ec, std::size_t wr) {
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), wr);)
+    void write_handler(task_item *item, const error_code& ec, std::size_t wr, impl_holder holder) {
+        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), wr, std::move(holder));)
 
         delete item;
 
@@ -279,13 +279,13 @@ struct socket::impl {
             ,make_preallocated_handler(
                  m_write_handler_allocator
                 ,[this, item, holder=std::move(holder)]
-                 (const error_code& ec, std::size_t wr)
-                 { write_some_handler(item, ec, wr); }
+                 (const error_code& ec, std::size_t wr) mutable
+                 { write_some_handler(item, ec, wr, std::move(holder)); }
             )
         );
     }
-    void write_some_handler(task_item *item, const error_code& ec, std::size_t wr) {
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), wr);)
+    void write_some_handler(task_item *item, const error_code& ec, std::size_t wr, impl_holder holder) {
+        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), wr, std::move(holder));)
 
         delete item;
 
@@ -315,13 +315,13 @@ struct socket::impl {
             ,make_preallocated_handler(
                  m_read_handler_allocator
                 ,[this, item, holder=std::move(holder)]
-                 (const error_code &ec, std::size_t rd)
-                 { read_handler(item, ec, rd); }
+                 (const error_code &ec, std::size_t rd) mutable
+                 { read_handler(item, ec, rd, std::move(holder)); }
             )
         );
     }
-    void read_handler(task_item *item, const error_code& ec, std::size_t rd) {
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), rd);)
+    void read_handler(task_item *item, const error_code& ec, std::size_t rd, impl_holder holder) {
+        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), rd, std::move(holder));)
 
         delete item;
 
@@ -350,13 +350,13 @@ struct socket::impl {
             ,make_preallocated_handler(
                  m_read_handler_allocator
                 ,[this, item, holder=std::move(holder)]
-                 (const error_code &ec, std::size_t rd)
-                 { read_some_handler(item, ec, rd); }
+                 (const error_code &ec, std::size_t rd) mutable
+                 { read_some_handler(item, ec, rd, std::move(holder)); }
             )
         );
     }
-    void read_some_handler(task_item *item, const error_code& ec, std::size_t rd) {
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), rd);)
+    void read_some_handler(task_item *item, const error_code& ec, std::size_t rd, impl_holder holder) {
+        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), rd, std::move(holder));)
 
         delete item;
 

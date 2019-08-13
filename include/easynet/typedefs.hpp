@@ -32,12 +32,12 @@
 #ifndef __easynet__typedefs_hpp
 #define __easynet__typedefs_hpp
 
-#include <boost/system/error_code.hpp>
-
 #include <cstdint>
 #include <string>
 #include <ostream>
 #include <memory>
+
+#include <boost/system/error_code.hpp>
 
 /***************************************************************************/
 
@@ -47,11 +47,16 @@ class io_context;
 } // ns asio
 } // ns boost
 
+/***************************************************************************/
+
 namespace easynet {
 
 using error_code = boost::system::error_code;
-
 using impl_holder = std::shared_ptr<void>;
+
+struct socket;
+struct acceptor;
+struct timer;
 
 /***************************************************************************/
 

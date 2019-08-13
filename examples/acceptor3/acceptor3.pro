@@ -28,4 +28,5 @@ HEADERS += \
     ../../include/easynet/preallocated_handler.hpp \
     ../../include/easynet/preallocated_handler_invoker.hpp \
     ../../include/easynet/shared_buffer.hpp \
-    ../../include/easynet/socket.hpp
+    ../../include/easynet/socket.hpp \
+    ../../include/easynet/timer.hpp

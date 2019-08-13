@@ -48,25 +48,19 @@ struct timer {
     timer& operator= (timer &&) = default;
 
     timer(boost::asio::io_context &ios);
+    virtual ~timer();
 
-    using timeout_handler = std::function<void(const error_code &ec)>;
-    void start(std::size_t ms, timeout_handler cb);
+    using timeout_handler = std::function<void(const error_code &ec, impl_holder)>;
+    void start(std::size_t ms, timeout_handler cb, impl_holder holder = {});
+
     template<typename Obj>
-    void start(std::size_t ms, Obj* o, void(Obj::*m)(const error_code &ec)) {
+    void start(std::size_t ms, Obj* o, void(Obj::*m)(const error_code &ec, impl_holder), impl_holder holder = {}) {
         start(
              ms
             ,[this, o, m]
-             (const error_code &ec)
-             { (o->*m)(ec); }
-        );
-    }
-    template<typename Obj>
-    void start(std::size_t ms, std::shared_ptr<Obj> o, void(Obj::*m)(const error_code &ec)) {
-        start(
-             ms
-            ,[this, o=std::move(o), m]
-             (const error_code &ec)
-             { (o.get()->*m)(ec); }
+             (const error_code &ec, impl_holder holder)
+             { (o->*m)(ec, std::move(holder)); }
+            ,std::move(holder)
         );
     }
 

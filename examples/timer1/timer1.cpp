@@ -45,18 +45,19 @@ struct timer_object: std::enable_shared_from_this<timer_object> {
     void start() {
         m_timer.start(
              1000
-            ,[this, self=shared_from_this()]
-             (const easynet::error_code &ec)
-             { on_timeout_0(ec); }
+            ,[this]
+             (const easynet::error_code &ec, easynet::impl_holder holder)
+             { on_timeout_0(ec, std::move(holder)); }
+            ,shared_from_this()
         );
     }
 
-    void on_timeout_0(const easynet::error_code &ec) {
+    void on_timeout_0(const easynet::error_code &ec, easynet::impl_holder holder) {
         std::cout << "on_timeout_0(): ec=" << ec << std::endl;
 
-        m_timer.start(1000, shared_from_this(), &timer_object::on_timeout_1);
+        m_timer.start(1000, this, &timer_object::on_timeout_1, std::move(holder));
     }
-    void on_timeout_1(const easynet::error_code &ec) {
+    void on_timeout_1(const easynet::error_code &ec, easynet::impl_holder) {
         std::cout << "on_timeout_1(): ec=" << ec << std::endl;
 
     }

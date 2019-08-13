@@ -47,7 +47,7 @@ struct server {
         acceptor.async_accept(this, &server::on_accept);
     }
 
-    void on_accept(easynet::socket socket, const easynet::endpoint& ep, const easynet::error_code &ec) {
+    void on_accept(const easynet::error_code &ec, easynet::socket socket, const easynet::endpoint& ep) {
         char buf[tests_config::buffer_size] = "\0";
 
         std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;

@@ -38,13 +38,13 @@
 
 /***************************************************************************/
 
-void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t wr) {
+void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, std::size_t wr, easynet::impl_holder) {
     std::cout
     << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
     << std::endl;
 }
 
-void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, size_t rd) {
+void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, std::size_t rd, easynet::impl_holder) {
     std::cout
     << "read_handler(): " << easynet::buffer_data(buf) << ", " << rd << ", ec = " << ec
     << std::endl;

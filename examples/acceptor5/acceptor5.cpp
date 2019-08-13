@@ -45,21 +45,23 @@ struct session: std::enable_shared_from_this<session> {
     {}
 
     void start() {
-        socket.async_read(tests_config::buffer_size, shared_from_this(), &session::read_handler);
+        socket.async_read(tests_config::buffer_size, this, &session::read_handler, shared_from_this());
     }
 
-    void read_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t rd) {
+    void read_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t rd, easynet::impl_holder holder) {
         if ( !ec ) {
             std::cout
             << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
             << std::endl;
 
-            socket.async_write(buf, shared_from_this(), &session::write_handler);
+            socket.async_write(buf, this, &session::write_handler, std::move(holder));
         } else {
             std::cout << "[2] ec = " << ec << std::endl;
         }
     }
-    void write_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t wr) {
+    void write_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t wr, easynet::impl_holder holder) {
+        (void)holder;
+
         if ( !ec ) {
             std::cout
             << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
@@ -86,7 +88,7 @@ struct server {
         acceptor.async_accept(this, &server::on_accept);
     }
 
-    void on_accept(easynet::socket socket, const easynet::endpoint &ep, const easynet::error_code &ec) {
+    void on_accept(const easynet::error_code &ec, easynet::socket socket, const easynet::endpoint &ep) {
         std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
         if ( !ec ) {
             auto s = std::make_shared<session>(std::move(socket));

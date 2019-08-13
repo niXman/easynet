@@ -45,9 +45,9 @@ struct timer::impl {
     ~impl()
     {}
 
-    void start(std::size_t ms, timeout_handler cb) {
+    void start(std::size_t ms, timeout_handler cb, impl_holder holder) {
         if ( m_started ) {
-            cb(boost::asio::error::already_started);
+            cb(boost::asio::error::already_started, std::move(holder));
 
             return;
         }
@@ -56,10 +56,11 @@ struct timer::impl {
 
         m_timer.expires_from_now(std::chrono::milliseconds(ms));
         m_timer.async_wait(
-            [this, cb=std::move(cb)]
-            (const error_code &ec) mutable {
+            [this, cb=std::move(cb), holder=std::move(holder)]
+            (const error_code &ec) mutable
+            {
                 m_started = false;
-                cb(ec);
+                cb(ec, std::move(holder));
             }
         );
     }
@@ -79,9 +80,13 @@ timer::timer(boost::asio::io_context &ios)
     :pimpl{std::make_shared<impl>(ios)}
 {}
 
+timer::~timer()
+{}
+
 /***************************************************************************/
 
-void timer::start(std::size_t ms, timeout_handler cb) { return pimpl->start(ms, std::move(cb)); }
+void timer::start(std::size_t ms, timeout_handler cb, impl_holder holder)
+{ return pimpl->start(ms, std::move(cb), std::move(holder)); }
 void timer::stop() { return pimpl->stop(); }
 bool timer::started() const { return pimpl->started(); }
 

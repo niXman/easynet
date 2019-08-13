@@ -38,8 +38,8 @@ namespace easynet {
 /***************************************************************************/
 
 struct acceptor::impl {
-    impl(boost::asio::io_context& ios, const std::string& ip, std::uint16_t port)
-        :m_acc(ios, boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port))
+    impl(boost::asio::io_context& ios, const char *ip, std::uint16_t port)
+        :m_acc(ios, boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port), true)
     {}
     ~impl() {
         error_code ec;
@@ -83,7 +83,10 @@ struct acceptor::impl {
              *sock_impl
             ,[sock=std::move(sock), cb=std::move(cb), holder=std::move(holder)]
              (const error_code &ec) mutable
-             { cb(std::move(sock), ec); }
+             {
+                const auto &ep = sock.remote_endpoint();
+                cb(ec, std::move(sock), ep, std::move(holder));
+             }
         );
     }
 
@@ -92,8 +95,11 @@ struct acceptor::impl {
 
 /***************************************************************************/
 
-acceptor::acceptor(boost::asio::io_context& ios, const std::string& ip, boost::uint16_t port)
+acceptor::acceptor(boost::asio::io_context& ios, const char *ip, boost::uint16_t port)
     :pimpl{std::make_shared<impl>(ios, ip, port)}
+{}
+
+acceptor::~acceptor()
 {}
 
 /***************************************************************************/

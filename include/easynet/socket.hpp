@@ -103,35 +103,42 @@ struct socket {
     std::size_t write(const shared_buffer &buf);
     std::size_t write(const shared_buffer &buf, error_code &ec);
 
-    using handler_type = std::function<void(const error_code&, shared_buffer, std::size_t)>;
 
     template<typename Obj>
     struct memfn_ptr {
-        using type = void(Obj::*)(const error_code&, shared_buffer, std::size_t);
+        using type = void(Obj::*)(const error_code&, shared_buffer, std::size_t, impl_holder);
     };
 
     /** async write */
     template<typename F>
-    void async_write(shared_buffer buf, F handler, impl_holder holder = {}) {
-        append_task(e_task::task_write, std::move(buf), std::move(handler), std::move(holder));
+    void async_write(shared_buffer buf, F f, impl_holder holder = {}) {
+        append_task(e_task::task_write, std::move(buf), std::move(f), std::move(holder));
+    }
+    template<typename F>
+    void async_write(const void *ptr, std::size_t size, F f, impl_holder holder = {}) {
+        shared_buffer buf{
+            {const_cast<char *>(static_cast<const char *>(ptr)), [](char*){}}
+            ,size
+        };
+        append_task(e_task::task_write, std::move(buf), std::move(f), std::move(holder));
     }
     template<typename Obj>
-    void async_write(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m) {
+    void async_write(const void *ptr, std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_write(
-             std::move(buf)
-            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t wr)
-             { (o->*m)(ec, std::move(buf), wr); }
-            ,impl_holder{}
+             ptr
+            ,size
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t wr, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), wr, std::move(holder)); }
+            ,std::move(holder)
         );
     }
     template<typename Obj>
-    void async_write(shared_buffer buf, std::shared_ptr<Obj> o, typename memfn_ptr<Obj>::type m) {
-        auto optr = o.get();
+    void async_write(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_write(
              std::move(buf)
-            ,[optr, m](const error_code &ec, shared_buffer buf, std::size_t wr)
-             { (optr->*m)(ec, std::move(buf), wr); }
-            ,std::move(o)
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t wr, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), wr, std::move(holder)); }
+            ,std::move(holder)
         );
     }
 
@@ -143,26 +150,34 @@ struct socket {
 
     /** async write some */
     template<typename F>
-    void async_write_some(shared_buffer buf, F handler, impl_holder holder = {}) {
-        append_task(e_task::task_write_some, std::move(buf), std::move(handler), std::move(holder));
+    void async_write_some(shared_buffer buf, F f, impl_holder holder = {}) {
+        append_task(e_task::task_write_some, std::move(buf), std::move(f), std::move(holder));
+    }
+    template<typename F>
+    void async_write_some(const void *ptr, std::size_t size, F f, impl_holder holder = {}) {
+        shared_buffer buf{
+             {const_cast<char *>(static_cast<const char *>(ptr)), [](char*){}}
+            ,size
+        };
+        append_task(e_task::task_write_some, std::move(buf), std::move(f), std::move(holder));
     }
     template<typename Obj>
-    void async_write_some(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m) {
+    void async_write_some(const void *ptr, std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_write_some(
-             std::move(buf)
-            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t wr)
-             { (o->*m)(ec, std::move(buf), wr); }
-            ,impl_holder{}
+             ptr
+            ,size
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t wr, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), wr, std::move(holder)); }
+            ,std::move(holder)
         );
     }
     template<typename Obj>
-    void async_write_some(shared_buffer buf, std::shared_ptr<Obj> o, typename memfn_ptr<Obj>::type m) {
-        auto optr = o.get();
+    void async_write_some(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_write_some(
              std::move(buf)
-            ,[optr, m](const error_code &ec, shared_buffer buf, std::size_t wr)
-             { (optr->*m)(ec, std::move(buf), wr); }
-            ,std::move(o)
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t wr, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), wr, std::move(holder)); }
+            ,std::move(holder)
         );
     }
 
@@ -174,49 +189,47 @@ struct socket {
 
     /** async read */
     template<typename F>
-    void async_read(std::size_t size, F handler, impl_holder holder = {}) {
-        append_task(e_task::task_read, shared_buffer{nullptr, size}, std::move(handler), std::move(holder));
+    void async_read(std::size_t size, F f, impl_holder holder = {}) {
+        append_task(e_task::task_read, shared_buffer{nullptr, size}, std::move(f), std::move(holder));
     }
     template<typename F>
-    void async_read(shared_buffer buf, F handler, impl_holder holder = {}) {
-        append_task(e_task::task_read, std::move(buf), std::move(handler), std::move(holder));
+    void async_read(void *ptr, std::size_t size, F f, impl_holder holder = {}) {
+        shared_buffer buf{
+             {static_cast<char *>(ptr), [](char *){}}
+            ,size
+        };
+        append_task(e_task::task_read, std::move(buf), std::move(f), std::move(holder));
+    }
+    template<typename F>
+    void async_read(shared_buffer buf, F f, impl_holder holder = {}) {
+        append_task(e_task::task_read, std::move(buf), std::move(f), std::move(holder));
     }
     template<typename Obj>
-    void async_read(std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m) {
+    void async_read(void *ptr, std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
+        async_read(
+             ptr
+            ,size
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+    template<typename Obj>
+    void async_read(std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_read(
              size
-            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (o->*m)(ec, std::move(buf), rd); }
-            ,impl_holder{}
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
         );
     }
     template<typename Obj>
-    void async_read(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m) {
+    void async_read(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_read(
              std::move(buf)
-            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (o->*m)(ec, std::move(buf), rd); }
-            ,impl_holder{}
-        );
-    }
-    template<typename Obj>
-    void async_read(std::size_t size, std::shared_ptr<Obj> o, typename memfn_ptr<Obj>::type m) {
-        auto optr = o.get();
-        async_read(
-             size
-            ,[optr, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (optr->*m)(ec, std::move(buf), rd); }
-            ,std::move(o)
-        );
-    }
-    template<typename Obj>
-    void async_read(shared_buffer buf, std::shared_ptr<Obj> o, typename memfn_ptr<Obj>::type m) {
-        auto optr = o.get();
-        async_read(
-             std::move(buf)
-            ,[optr, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (optr->*m)(ec, std::move(buf), rd); }
-            ,std::move(o)
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
         );
     }
 
@@ -228,49 +241,47 @@ struct socket {
 
     /** async read some */
     template<typename F>
-    void async_read_some(std::size_t size, F handler, impl_holder holder = {}) {
-        append_task(e_task::task_read_some, shared_buffer{nullptr, size}, std::move(handler), std::move(holder));
+    void async_read_some(std::size_t size, F f, impl_holder holder = {}) {
+        append_task(e_task::task_read_some, shared_buffer{nullptr, size}, std::move(f), std::move(holder));
     }
     template<typename F>
-    void async_read_some(shared_buffer buf, F handler, impl_holder holder = {}) {
-        append_task(e_task::task_read_some, std::move(buf), std::move(handler), std::move(holder));
+    void async_read_some(void *ptr, std::size_t size, F f, impl_holder holder = {}) {
+        shared_buffer buf{
+             {static_cast<char *>(ptr), [](char *){}}
+            ,size
+        };
+        append_task(e_task::task_read_some, std::move(buf), std::move(f), std::move(holder));
+    }
+    template<typename F>
+    void async_read_some(shared_buffer buf, F f, impl_holder holder = {}) {
+        append_task(e_task::task_read_some, std::move(buf), std::move(f), std::move(holder));
     }
     template<typename Obj>
-    void async_read_some(std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m) {
+    void async_read_some(std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_read_some(
              size
-            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (o->*m)(ec, std::move(buf), rd); }
-            ,impl_holder{}
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
         );
     }
     template<typename Obj>
-    void async_read_some(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m) {
+    void async_read_some(void *ptr, std::size_t size, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
+        async_read_some(
+             ptr
+            ,size
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+    template<typename Obj>
+    void async_read_some(shared_buffer buf, Obj* o, typename memfn_ptr<Obj>::type m, impl_holder holder = {}) {
         async_read_some(
              std::move(buf)
-            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (o->*m)(ec, std::move(buf), rd); }
-            ,impl_holder{}
-        );
-    }
-    template<typename Obj>
-    void async_read_some(std::size_t size, std::shared_ptr<Obj> o, typename memfn_ptr<Obj>::type m) {
-        auto optr = o.get();
-        async_read_some(
-             size
-            ,[optr, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (optr->*m)(ec, std::move(buf), rd); }
-            ,std::move(o)
-        );
-    }
-    template<typename Obj>
-    void async_read_some(shared_buffer buf, std::shared_ptr<Obj> o, typename memfn_ptr<Obj>::type m) {
-        auto optr = o.get();
-        async_read_some(
-             std::move(buf)
-            ,[optr, m](const error_code &ec, shared_buffer buf, std::size_t rd)
-             { (optr->*m)(ec, std::move(buf), rd); }
-            ,std::move(o)
+            ,[o, m](const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
         );
     }
 
@@ -281,6 +292,8 @@ private:
         ,task_read
         ,task_read_some
     };
+
+    using handler_type = std::function<void(const error_code&, shared_buffer, std::size_t, impl_holder)>;
 
     void append_task(e_task task, shared_buffer buf, handler_type cb, impl_holder holder);
 
