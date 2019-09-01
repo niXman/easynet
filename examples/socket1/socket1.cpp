@@ -34,20 +34,28 @@
 
 #include <boost/asio/io_context.hpp>
 
+#include <map>
 #include <iostream>
+
+std::map<std::size_t, std::string> wmap, rmap;
+std::size_t widx = 0, ridx = 0;
 
 /***************************************************************************/
 
 void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, std::size_t wr, easynet::impl_holder) {
     std::cout
-    << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
+    << "write_handler(): " << easynet::buffer_data(buf) << ", wr=" << wr << ", ec=" << ec.message()
     << std::endl;
+
+    wmap[widx++] = easynet::buffer_data(buf);
 }
 
 void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, std::size_t rd, easynet::impl_holder) {
     std::cout
-    << "read_handler(): " << easynet::buffer_data(buf) << ", " << rd << ", ec = " << ec
+    << "read_handler (): " << easynet::buffer_data(buf) << ", rd=" << rd << ", ec=" << ec.message()
     << std::endl;
+
+    rmap[ridx++] = easynet::buffer_data(buf);
 }
 
 /***************************************************************************/
@@ -61,16 +69,40 @@ int main(int, char**) {
 
         for ( auto idx = 0u; idx < tests_config::iterations; ++idx ) {
             easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
-            std::snprintf(easynet::buffer_data(buf), easynet::buffer_size(buf), "item: %u", idx);
+            std::snprintf(easynet::buffer_data(buf), easynet::buffer_size(buf), "%u", idx);
 
             socket.async_write(std::move(buf), write_handler);
         }
+
+        assert(socket.write_queue_size() == tests_config::iterations);
+        socket.write_queue_pop_front();
+        assert(socket.write_queue_size() == tests_config::iterations-1);
+        socket.write_queue_pop_front(3);
+        assert(socket.write_queue_size() == tests_config::iterations-4);
+
+        socket.write_queue_pop_back();
+        assert(socket.write_queue_size() == tests_config::iterations-5);
+        socket.write_queue_pop_back(3);
+        assert(socket.write_queue_size() == tests_config::iterations-8);
 
         for ( auto idx = 0u; idx < tests_config::iterations; ++idx ) {
             socket.async_read(tests_config::buffer_size, read_handler);
         }
 
+        assert(socket.read_queue_size() == tests_config::iterations);
+        socket.read_queue_pop_front();
+        assert(socket.read_queue_size() == tests_config::iterations-1);
+        socket.read_queue_pop_front(3);
+        assert(socket.read_queue_size() == tests_config::iterations-4);
+
+        socket.read_queue_pop_back();
+        assert(socket.read_queue_size() == tests_config::iterations-5);
+        socket.read_queue_pop_back(3);
+        assert(socket.read_queue_size() == tests_config::iterations-8);
+
         ios.run();
+
+        assert(wmap == rmap);
     } catch(const std::exception &ex) {
         std::cout << "[exception]: " << ex.what() << std::endl;
         return EXIT_FAILURE;

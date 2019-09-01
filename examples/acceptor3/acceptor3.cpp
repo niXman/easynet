@@ -46,9 +46,11 @@ void accept_handler(const easynet::error_code &ec, easynet::socket sock, const e
     std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
     if ( !ec ) {
         easynet::error_code ec;
-        sock.read(buf, tests_config::buffer_size, ec);
+        auto n = sock.read(buf, tests_config::buffer_size, ec);
+        std::cout << "read(): n=" << n << std::endl;
         if ( !ec ) {
-            sock.write(buf, tests_config::buffer_size, ec);
+            auto n = sock.write(buf, tests_config::buffer_size, ec);
+            std::cout << "write(): n=" << n << std::endl;
         } else {
             std::cout << "[1] ec = " << ec << std::endl;
         }

@@ -53,9 +53,11 @@ int main(int, char**) {
 
             std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
             if ( !ec ) {
-                socket.read(buf, tests_config::buffer_size, ec);
+                auto n = socket.read(buf, tests_config::buffer_size, ec);
+                std::cout << "read(): n=" << n << std::endl;
                 if ( !ec ) {
-                    socket.write(buf, tests_config::buffer_size, ec);
+                    auto n = socket.write(buf, tests_config::buffer_size, ec);
+                    std::cout << "write(): n=" << n << std::endl;
                 } else {
                     std::cout << "[1] ec = " << ec << std::endl;
                 }

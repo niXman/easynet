@@ -43,31 +43,31 @@ struct session: std::enable_shared_from_this<session> {
     session(easynet::socket sock)
         :socket(std::move(sock))
     {}
+    virtual ~session()
+    { std::cout << "~session()" << std::endl; }
 
-    void start() {
-        socket.async_read(tests_config::buffer_size, this, &session::read_handler, shared_from_this());
+    void start(easynet::impl_holder holder) {
+        socket.async_read(tests_config::buffer_size, this, &session::read_handler, std::move(holder));
     }
 
     void read_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t rd, easynet::impl_holder holder) {
         if ( !ec ) {
             std::cout
-            << "read_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", rd = " << rd
+            << "read_handler: ec = " << ec << ", buf = \"" << easynet::buffer_data(buf) << "\", rd = " << rd
             << std::endl;
 
-            socket.async_write(buf, this, &session::write_handler, std::move(holder));
+            socket.async_write(std::move(buf), this, &session::write_handler, std::move(holder));
         } else {
             std::cout << "[2] ec = " << ec << std::endl;
         }
     }
     void write_handler(const easynet::error_code& ec, easynet::shared_buffer buf, std::size_t wr, easynet::impl_holder holder) {
-        (void)holder;
-
         if ( !ec ) {
             std::cout
-            << "write_handler: ec = " << ec << ", buf = " << easynet::buffer_data(buf) << ", wr = " << wr
+            << "write_handler: ec = " << ec << ", buf = \"" << easynet::buffer_data(buf) << "\", wr = " << wr
             << std::endl;
 
-            start();
+            start(std::move(holder));
         } else {
             std::cout << "[3] ec = " << ec << std::endl;
         }
@@ -92,7 +92,7 @@ struct server {
         std::cout << "new connection from " << ep << ", ec = " << ec << std::endl;
         if ( !ec ) {
             auto s = std::make_shared<session>(std::move(socket));
-            s->start();
+            s->start(s->shared_from_this());
         } else {
             std::cout << "[1] ec = " << ec << std::endl;
         }

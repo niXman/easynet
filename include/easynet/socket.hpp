@@ -44,8 +44,9 @@ namespace easynet {
 struct socket {
     socket(const socket &) = delete;
     socket& operator= (const socket &) = delete;
-    socket(socket &&) = default;
-    socket& operator= (socket &&) = default;
+
+    socket(socket &&r);
+    socket& operator= (socket &&r);
 
     socket(boost::asio::io_context &ios);
     virtual ~socket();
@@ -96,6 +97,18 @@ struct socket {
     /** clear the read/write/ queue */
     void clear_read_queue();
     void clear_write_queue();
+
+    /** pop front/back for read queue*/
+    void read_queue_pop_front();
+    void read_queue_pop_front(std::size_t n);
+    void read_queue_pop_back();
+    void read_queue_pop_back(std::size_t n);
+
+    /** pop front/back for read queue*/
+    void write_queue_pop_front();
+    void write_queue_pop_front(std::size_t n);
+    void write_queue_pop_back();
+    void write_queue_pop_back(std::size_t n);
 
     /** sync write */
     std::size_t write(const void* ptr, std::size_t size);
@@ -294,17 +307,15 @@ private:
     };
 
     using handler_type = std::function<void(const error_code&, shared_buffer, std::size_t, impl_holder)>;
-
     void append_task(e_task task, shared_buffer buf, handler_type cb, impl_holder holder);
 
     friend struct acceptor;
-
     /** returns the pointer to impl details */
     void* get_impl_details();
 
 private:
     struct impl;
-    std::shared_ptr<impl> pimpl;
+    std::unique_ptr<impl> pimpl;
 };
 
 /***************************************************************************/
