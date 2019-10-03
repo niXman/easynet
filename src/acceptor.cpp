@@ -96,7 +96,7 @@ struct acceptor::impl {
 /***************************************************************************/
 
 acceptor::acceptor(boost::asio::io_context& ios, const char *ip, boost::uint16_t port)
-    :pimpl{std::make_shared<impl>(ios, ip, port)}
+    :pimpl{std::make_unique<impl>(ios, ip, port)}
 {}
 
 acceptor::~acceptor()

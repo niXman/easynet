@@ -42,7 +42,8 @@ namespace easynet {
 
 struct shared_buffer {
     std::shared_ptr<char> data;
-    size_t size;
+    std::size_t size;
+    std::size_t offset;
 };
 
 /***************************************************************************/
@@ -53,6 +54,7 @@ inline shared_buffer buffer_alloc(std::size_t size) {
     return {
          {new char[size], std::default_delete<char[]>()}
         ,size
+        ,0 // offset
     };
 }
 
@@ -62,6 +64,7 @@ inline shared_buffer buffer_clone(const shared_buffer &buffer) {
     shared_buffer result = {
          {new char[buffer.size], std::default_delete<char[]>()}
         ,buffer.size
+        ,0 // offset
     };
     std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
 
@@ -74,6 +77,7 @@ inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t size)
     shared_buffer result = {
          {new char[size], std::default_delete<char[]>()}
         ,size
+        ,0 // offset
     };
     std::memcpy(result.data.get(), buffer.data.get(), size);
 
@@ -86,6 +90,7 @@ inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t from,
     shared_buffer result = {
          {new char[size], std::default_delete<char[]>()}
         ,size
+        ,0 // offset
     };
     std::memcpy(result.data.get(), buffer.data.get()+from, size);
 
@@ -98,6 +103,7 @@ inline shared_buffer buffer_clone(const void *ptr, size_t size) {
     shared_buffer result = {
          {new char[size], std::default_delete<char[]>()}
         ,size
+        ,0 // offset
     };
     std::memcpy(result.data.get(), ptr, size);
 
@@ -108,6 +114,7 @@ inline shared_buffer buffer_shift(const shared_buffer &buffer, std::size_t bytes
     shared_buffer result = {
         {buffer.data, buffer.data.get()+bytes}
         ,buffer.size-bytes
+        ,buffer.offset+bytes // offset
     };
 
     return result;
@@ -125,6 +132,14 @@ inline const char* buffer_data(const shared_buffer &buffer) {
 
 inline char* buffer_data(shared_buffer &buffer) {
     return buffer.data.get();
+}
+
+inline const char* buffer_data_unshifted(const shared_buffer &buffer) {
+    return buffer.data.get() - buffer.offset;
+}
+
+inline char* buffer_data_unshifted(shared_buffer &buffer) {
+    return buffer.data.get() - buffer.offset;
 }
 
 inline std::size_t buffer_refs(const shared_buffer &buffer) {

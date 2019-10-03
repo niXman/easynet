@@ -29,6 +29,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#undef NDEBUG
+
 #include <easynet/socket.hpp>
 #include "../tests_config.hpp"
 
@@ -44,7 +46,7 @@ std::size_t widx = 0, ridx = 0;
 
 void write_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, std::size_t wr, easynet::impl_holder) {
     std::cout
-    << "write_handler(): " << easynet::buffer_data(buf) << ", wr=" << wr << ", ec=" << ec.message()
+    << "write_handler(): data=\"" << easynet::buffer_data(buf) << "\", wr=" << wr << ", ec=" << ec.message()
     << std::endl;
 
     wmap[widx++] = easynet::buffer_data(buf);
@@ -52,7 +54,7 @@ void write_handler(const boost::system::error_code& ec, easynet::shared_buffer b
 
 void read_handler(const boost::system::error_code& ec, easynet::shared_buffer buf, std::size_t rd, easynet::impl_holder) {
     std::cout
-    << "read_handler (): " << easynet::buffer_data(buf) << ", rd=" << rd << ", ec=" << ec.message()
+    << "read_handler (): data=\"" << easynet::buffer_data(buf) << "\", rd=" << rd << ", ec=" << ec.message()
     << std::endl;
 
     rmap[ridx++] = easynet::buffer_data(buf);

@@ -5,15 +5,14 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 QMAKE_CXXFLAGS += \
-    -std=c++14
+    -std=c++14 \
+    -pthread
+
+QMAKE_LFLAGS += \
+    -pthread
 
 INCLUDEPATH += \
     ../../include
-
-LIBS += \
-    -L/usr/local/lib \
-    -lboost_system \
-    -pthread
 
 SOURCES += \
     socket2.cpp \

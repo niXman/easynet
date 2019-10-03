@@ -44,8 +44,9 @@ namespace easynet {
 struct acceptor {
     acceptor(const acceptor &) = delete;
     acceptor& operator= (const acceptor &) = delete;
-    acceptor(acceptor &&) = default;
-    acceptor& operator= (acceptor &&) = default;
+
+    acceptor(acceptor &&);
+    acceptor& operator= (acceptor &&);
 
     acceptor(boost::asio::io_context& ios, const char *ip, std::uint16_t port);
     virtual ~acceptor();
@@ -117,7 +118,7 @@ private:
 
 private:
     struct impl;
-    std::shared_ptr<impl> pimpl;
+    std::unique_ptr<impl> pimpl;
 };
 
 /***************************************************************************/

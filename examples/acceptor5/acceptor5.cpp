@@ -29,6 +29,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#undef NDEBUG
+
 #include <easynet/socket.hpp>
 #include <easynet/acceptor.hpp>
 #include "../tests_config.hpp"
@@ -43,8 +45,6 @@ struct session: std::enable_shared_from_this<session> {
     session(easynet::socket sock)
         :socket(std::move(sock))
     {}
-    virtual ~session()
-    { std::cout << "~session()" << std::endl; }
 
     void start(easynet::impl_holder holder) {
         socket.async_read(tests_config::buffer_size, this, &session::read_handler, std::move(holder));
@@ -96,6 +96,9 @@ struct server {
         } else {
             std::cout << "[1] ec = " << ec << std::endl;
         }
+
+        // start next accept
+        start();
     }
 
 private:

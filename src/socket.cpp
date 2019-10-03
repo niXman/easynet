@@ -31,11 +31,9 @@
 
 #include <easynet/shared_buffer.hpp>
 #include <easynet/handler_allocator.hpp>
-#include <easynet/preallocated_handler_invoker.hpp>
 #include <easynet/preallocated_handler.hpp>
 #include <easynet/socket.hpp>
 
-#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
@@ -48,8 +46,8 @@
 
 //#define EASYNET_DEBUG_ADD_REMOVE_TASKS
 #ifdef EASYNET_DEBUG_ADD_REMOVE_TASKS
-#   include <iostream> // TODO: comment out
 #   define EASYNET_EXPAND_EXPR(...) __VA_ARGS__
+#   include <iostream>
 #else
 #   define EASYNET_EXPAND_EXPR(...)
 #endif // EASYNET_DEBUG_ADD_REMOVE_TASKS
@@ -155,20 +153,23 @@ struct socket::impl {
     void clear_read_queue() {
         m_read_queue.clear_and_dispose(
             [](task_item *item) {
-                if ( !item->in_process ) {
-                    delete item;
-                }
+                if ( !item->in_process ) { delete item; }
             }
         );
     }
     void clear_write_queue() {
         m_write_queue.clear_and_dispose(
             [](task_item *item) {
-                if ( !item->in_process ) {
-                    delete item;
-                }
+                if ( !item->in_process ) { delete item; }
             }
         );
+    }
+
+    void wait_write() {
+        m_sock.wait(boost::asio::ip::tcp::socket::wait_write);
+    }
+    void wait_write(error_code &ec) {
+        m_sock.wait(boost::asio::ip::tcp::socket::wait_write, ec);
     }
 
     std::size_t write(const void* ptr, std::size_t size) {
@@ -194,6 +195,13 @@ struct socket::impl {
     }
     std::size_t write_some(const shared_buffer &buf, error_code& ec) {
         return write_some(buf.data.get(), buf.size, ec);
+    }
+
+    void wait_read() {
+        m_sock.wait(boost::asio::ip::tcp::socket::wait_read);
+    }
+    void wait_read(error_code &ec) {
+        m_sock.wait(boost::asio::ip::tcp::socket::wait_read, ec);
     }
 
     std::size_t read(void* ptr, std::size_t size) {
@@ -234,6 +242,18 @@ struct socket::impl {
     }
 
     struct task_item {
+        EASYNET_EXPAND_EXPR(
+            task_item(e_task t, bool inp, shared_buffer b, handler_type c, impl_holder h)
+                :task{t}
+                ,in_process{inp}
+                ,buffer{std::move(b)}
+                ,handler{std::move(c)}
+                ,holder{std::move(h)}
+            { std::cout << "task_item ctor: this=" << this << ", op=" << task_name(task) << ", inp=" << in_process << std::endl; }
+            ~task_item()
+            { std::cout << "task_item dtor: this=" << this << ", op=" << task_name(task) << ", inp=" << in_process << std::endl; }
+        )
+
         e_task task;
         bool in_process;
         shared_buffer buffer;
@@ -251,10 +271,11 @@ struct socket::impl {
 
     EASYNET_EXPAND_EXPR(
         static const char* task_name(socket::e_task task) {
-            return task == e_task::task_read ? "task_read"
-                : task == socket::e_task::task_read_some ? "task_read_some"
-                    : task == e_task::task_write ? "task_write"
-                        : "task_write_soze"
+            return task == e_task::read ? "read"
+                : task == socket::e_task::read_some ? "read_some"
+                    : task == e_task::write ? "write"
+                        : task == e_task::write_some ? "write_some"
+                            : "UNKNOWN_TASK"
             ;
         }
     )
@@ -262,12 +283,8 @@ struct socket::impl {
     void read_queue_pop_front(std::size_t n) {
         auto beg = m_read_queue.begin();
         for ( std::size_t i = 0; i < n && beg != m_read_queue.end(); ) {
-            task_item *item = &(*beg);
-
-            if ( !item->in_process ) {
-                beg = m_read_queue.erase(beg);
-                delete item;
-
+            if ( !beg->in_process ) {
+                beg = m_read_queue.erase_and_dispose(beg, [](task_item *item){ delete item; });
                 ++i;
             } else {
                 ++beg;
@@ -275,13 +292,10 @@ struct socket::impl {
         }
     }
     void read_queue_pop_back(std::size_t n) {
+        auto end = std::prev(m_read_queue.end());
         for ( std::size_t i = 0; i < n && !m_read_queue.empty(); ) {
-            task_item *item = &(m_read_queue.back());
-
-            if ( !item->in_process ) {
-                m_read_queue.pop_back();
-                delete item;
-
+            if ( !end->in_process ) {
+                m_read_queue.pop_back_and_dispose([](task_item *item){ delete item; });
                 ++i;
             }
         }
@@ -290,12 +304,8 @@ struct socket::impl {
     void write_queue_pop_front(std::size_t n) {
         auto beg = m_write_queue.begin();
         for ( std::size_t i = 0; i < n && beg != m_write_queue.end(); ) {
-            task_item *item = &(*beg);
-
-            if ( !item->in_process ) {
-                beg = m_write_queue.erase(beg);
-                delete item;
-
+            if ( !beg->in_process ) {
+                beg = m_write_queue.erase_and_dispose(beg, [](task_item *item){ delete item; });
                 ++i;
             } else {
                  ++beg;
@@ -303,41 +313,50 @@ struct socket::impl {
         }
     }
     void write_queue_pop_back(std::size_t n) {
+        auto end = std::prev(m_write_queue.end());
         for ( std::size_t i = 0; i < n && !m_write_queue.empty(); ) {
-            task_item *item = &(m_write_queue.back());
-
-            if ( !item->in_process ) {
-                m_write_queue.pop_back();
-                delete item;
-
+            if ( !end->in_process ) {
+                m_write_queue.pop_back_and_dispose([](task_item *item){ delete item; });
                 ++i;
             }
         }
     }
 
+    void append_task(e_task task, handler_type2 cb, impl_holder holder) {
+        assert(task == e_task::read || task == e_task::write);
+
+        auto wt = task == e_task::read
+            ? boost::asio::ip::tcp::socket::wait_read
+            : boost::asio::ip::tcp::socket::wait_write
+        ;
+
+        m_sock.async_wait(
+             wt
+            ,[cb=std::move(cb), holder=std::move(holder)](const error_code& ec) mutable
+             { cb(ec, std::move(holder)); }
+        );
+    }
+
     void append_task(socket::e_task task, shared_buffer buf, handler_type cb, impl_holder holder) {
         auto *item = new task_item{task, false, std::move(buf), std::move(cb), std::move(holder)};
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::append_task: this=" << this << ", op=" << task_name(task) << ", addr=" << item << std::endl;)
+        auto &toappend = (task == e_task::read || task == e_task::read_some) ? m_read_queue : m_write_queue;
 
-        if ( task == e_task::task_read || task == e_task::task_read_some ) {
-            m_read_queue.push_back(*item);
-            if ( m_read_queue.size() == 1 ) {
-                start_task(item);
-            }
-        } else {
-            m_write_queue.push_back(*item);
-            if ( m_write_queue.size() == 1 ) {
-                start_task(item);
-            }
+        EASYNET_EXPAND_EXPR(std::cout << "socket::append_task: this=" << this << ", op=" << task_name(task) << ", size=" << item->buffer.size << ", addr=" << item << ", queue_size=" << toappend.size() << std::endl;)
+
+        toappend.push_back(*item);
+
+        if ( toappend.size() == 1u ) {
+            EASYNET_EXPAND_EXPR(std::cout << "socket::append_task->start_task: this=" << this << ", op=" << task_name(task) << ", size=" << item->buffer.size << ", addr=" << item << std::endl;)
+            start_task(item);
         }
     }
     void start_task(task_item *item) {
         switch ( item->task ) {
-            case e_task::task_read:       { start_read(item); return; }
-            case e_task::task_read_some:  { start_read_some(item); return; }
-            case e_task::task_write:      { start_write(item); return; }
-            case e_task::task_write_some: { start_write_some(item); return; }
+            case e_task::read:       { start_read(item); return; }
+            case e_task::read_some:  { start_read_some(item); return; }
+            case e_task::write:      { start_write(item); return; }
+            case e_task::write_some: { start_write_some(item); return; }
         }
     }
 
@@ -346,6 +365,9 @@ struct socket::impl {
         item->in_process = true;
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
+
+        EASYNET_EXPAND_EXPR(std::cout << "socket::start_write: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+
         boost::asio::async_write(
              m_sock
             ,boost::asio::buffer(buf_data, buf_size)
@@ -357,51 +379,41 @@ struct socket::impl {
             )
         );
     }
-    void write_handler(task_item *item, const error_code& ec, std::size_t wr) {
-        EASYNET_EXPAND_EXPR(std::cout << "socket::write_handler enter: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
-
-        m_write_queue.pop_front();
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), wr, item->holder);)
-
-        EASYNET_EXPAND_EXPR(std::cout << "socket::write_handler leave: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
-
-        if ( !m_write_queue.empty() ) {
-            auto *item2 = &(m_write_queue.front());
-            start_task(item2);
-        }
-
-        delete item;
-    }
-
-    /**  */
     void start_write_some(task_item *item) {
         item->in_process = true;
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
+
+        EASYNET_EXPAND_EXPR(std::cout << "socket::start_write_some: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+
         m_sock.async_write_some(
              boost::asio::buffer(buf_data, buf_size)
-            ,make_preallocated_handler(
-                 m_write_handler_allocator
-                ,[this, item]
-                 (const error_code& ec, std::size_t wr)
-                 { write_some_handler(item, ec, wr); }
-            )
+            ,[this, item]
+             (const error_code& ec, std::size_t wr)
+             { write_handler(item, ec, wr); }
         );
     }
-    void write_some_handler(task_item *item, const error_code& ec, std::size_t wr) {
-        EASYNET_EXPAND_EXPR(std::cout << "socket::write_some_handler enter: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
+    void write_handler(task_item *item, const error_code& ec, std::size_t wr) {
+        auto holder = std::move(item->holder);
+        auto buffer = std::move(item->buffer);
+        auto funct  = std::move(item->handler);
 
-        m_write_queue.pop_front();
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), wr, item->holder);)
+        EASYNET_EXPAND_EXPR(
+            auto size = buffer.size;
+            auto task = task_name(item->task);
+            std::cout << "socket::write_handler enter: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;
+        )
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::write_some_handler leave: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
+        m_write_queue.pop_front_and_dispose([](task_item *item){ delete item; });
 
-        if ( !m_write_queue.empty() ) {
-            auto *item2 = &(m_write_queue.front());
+        EASYNET_TRY_CATCH_BLOCK(funct(ec, std::move(buffer), wr, std::move(holder));)
+
+        if ( !m_write_queue.empty() && !m_write_queue.front().in_process ) {
+            task_item *item2 = &(m_write_queue.front());
             start_task(item2);
         }
 
-        delete item;
+        EASYNET_EXPAND_EXPR(std::cout << "socket::write_handler leave: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;)
     }
 
     /**  */
@@ -413,6 +425,9 @@ struct socket::impl {
 
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
+
+        EASYNET_EXPAND_EXPR(std::cout << "socket::start_read: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+
         boost::asio::async_read(
              m_sock
             ,boost::asio::buffer(buf_data, buf_size)
@@ -424,23 +439,6 @@ struct socket::impl {
             )
         );
     }
-    void read_handler(task_item *item, const error_code& ec, std::size_t rd) {
-        EASYNET_EXPAND_EXPR(std::cout << "socket::read_handler enter: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
-
-        m_read_queue.pop_front();
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), rd, item->holder);)
-
-        EASYNET_EXPAND_EXPR(std::cout << "socket::read_handler leave: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
-
-        if ( !m_read_queue.empty() ) {
-            auto *item2 = &(m_read_queue.front());
-            start_task(item2);
-        }
-
-        delete item;
-    }
-
-    /**  */
     void start_read_some(task_item *item) {
         item->in_process = true;
         if ( !item->buffer.data ) {
@@ -449,35 +447,40 @@ struct socket::impl {
 
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
+
+        EASYNET_EXPAND_EXPR(std::cout << "socket::start_read_some: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+
         m_sock.async_read_some(
              boost::asio::buffer(buf_data, buf_size)
-            ,make_preallocated_handler(
-                 m_read_handler_allocator
-                ,[this, item]
-                 (const error_code &ec, std::size_t rd)
-                 { read_some_handler(item, ec, rd); }
-            )
+            ,[this, item]
+             (const error_code &ec, std::size_t rd)
+             { read_handler(item, ec, rd); }
         );
     }
-    void read_some_handler(task_item *item, const error_code& ec, std::size_t rd) {
-        EASYNET_EXPAND_EXPR(std::cout << "socket::read_some_handler enter: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
+    void read_handler(task_item *item, const error_code& ec, std::size_t rd) {
+        auto holder = std::move(item->holder);
+        auto buffer = std::move(item->buffer);
+        auto funct  = std::move(item->handler);
 
-        m_read_queue.pop_front();
-        EASYNET_TRY_CATCH_BLOCK(item->handler(ec, std::move(item->buffer), rd, item->holder);)
+        EASYNET_EXPAND_EXPR(
+            auto size = buffer.size;
+            auto task = task_name(item->task);
+            std::cout << "socket::read_handler enter: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;
+        )
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::read_some_handler leave: this=" << this << ", op=" << task_name(item->task) << ", addr=" << item << std::endl;)
+        m_read_queue.pop_front_and_dispose([](task_item *item){ delete item; });
 
-        if ( !m_read_queue.empty() ) {
-            auto *item2 = &(m_read_queue.front());
+        EASYNET_TRY_CATCH_BLOCK(funct(ec, std::move(buffer), rd, std::move(holder));)
+
+        if ( !m_read_queue.empty() && !m_read_queue.front().in_process ) {
+            task_item *item2 = &(m_read_queue.front());
             start_task(item2);
         }
 
-        delete item;
+        EASYNET_EXPAND_EXPR(std::cout << "socket::read_handler leave: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;)
     }
 
-    ///////////////////////////////////////////////////////////////////////////
     boost::asio::ip::tcp::socket m_sock;
-
     using allocator_type = handler_allocator<128>;
     queue_type m_read_queue;
     allocator_type m_read_handler_allocator;
@@ -552,6 +555,9 @@ void socket::write_queue_pop_front(std::size_t n) { return pimpl->write_queue_po
 void socket::write_queue_pop_back() { return pimpl->write_queue_pop_back(1); }
 void socket::write_queue_pop_back(std::size_t n) { return pimpl->write_queue_pop_back(n); }
 
+void socket::wait_write() { return pimpl->wait_write(); }
+void socket::wait_write(easynet::error_code &ec) { return pimpl->wait_write(ec); }
+
 std::size_t socket::write(const void* ptr, std::size_t size) { return pimpl->write(ptr, size); }
 std::size_t socket::write(const void* ptr, std::size_t size, error_code &ec) { return pimpl->write(ptr, size, ec); }
 std::size_t socket::write(const shared_buffer &buf) { return pimpl->write(buf); }
@@ -561,6 +567,9 @@ std::size_t socket::write_some(const void* ptr, std::size_t size) { return pimpl
 std::size_t socket::write_some(const void* ptr, std::size_t size, error_code &ec) { return pimpl->write_some(ptr, size, ec); }
 std::size_t socket::write_some(const shared_buffer &buf) { return pimpl->write_some(buf); }
 std::size_t socket::write_some(const shared_buffer &buf, error_code &ec) { return pimpl->write_some(buf, ec); }
+
+void socket::wait_read() { return pimpl->wait_read(); }
+void socket::wait_read(easynet::error_code &ec) { return pimpl->wait_read(ec); }
 
 std::size_t socket::read(void* ptr, std::size_t size) { return pimpl->read(ptr, size); }
 std::size_t socket::read(void* ptr, std::size_t size, error_code &ec) { return pimpl->read(ptr, size, ec); }
@@ -574,6 +583,8 @@ shared_buffer socket::read_some(std::size_t size, error_code &ec) { return pimpl
 
 void socket::append_task(socket::e_task task, shared_buffer buf, handler_type cb, impl_holder holder)
 { return pimpl->append_task(task, std::move(buf), std::move(cb), std::move(holder)); }
+void socket::append_task(socket::e_task task, handler_type2 cb, impl_holder holder)
+{ return pimpl->append_task(task, std::move(cb), std::move(holder)); }
 
 /***************************************************************************/
 

@@ -15,7 +15,7 @@ INCLUDEPATH += \
     ../../include
 
 SOURCES += \
-    acceptor4.cpp \
+    socket6.cpp \
     \
     ../../src/acceptor.cpp \
     ../../src/socket.cpp \
