@@ -3,7 +3,7 @@
 easynet
 =======
 
-The wrappers on top of [boost.asio](https://www.boost.org/doc/libs/1_71_0/doc/html/boost_asio.html)
+The wrappers on top of [boost.asio](https://www.boost.org/doc/libs/1_69_0/doc/html/boost_asio.html)
 
 examples
 =======
