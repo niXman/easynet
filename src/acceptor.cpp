@@ -39,7 +39,10 @@ namespace easynet {
 
 struct acceptor::impl {
     impl(boost::asio::io_context& ios, const char *ip, std::uint16_t port)
-        :m_acc(ios, boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port), true)
+        :m_acc{ios, boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port), true}
+    {}
+    impl(boost::asio::io_context& ios)
+        :m_acc{ios}
     {}
     ~impl() {
         error_code ec;
@@ -53,6 +56,24 @@ struct acceptor::impl {
 
     void stop_accept() { m_acc.cancel(); }
     void stop_accept(error_code& ec) { m_acc.cancel(ec); }
+
+    void open(const char *ip, std::uint16_t port) {
+        error_code ec;
+
+        open(ip, port, ec);
+        if ( ec ) throw ec;
+    }
+    void open(const char *ip, std::uint16_t port, error_code& ec) {
+        boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address::from_string(ip, ec), port);
+        if ( ec ) return;
+        m_acc.open(ep.protocol(), ec);
+        if ( ec ) return;
+        m_acc.set_option(boost::asio::ip::tcp::socket::reuse_address(true), ec);
+        if ( ec ) return;
+        m_acc.bind(ep, ec);
+        if ( ec ) return;
+        m_acc.listen(boost::asio::ip::tcp::socket::max_listen_connections, ec);
+    }
 
     void accept(socket &sock, error_code& ec, endpoint* ep) {
         auto *sock_impl = static_cast<boost::asio::ip::tcp::socket*>(sock.get_impl_details());
@@ -95,6 +116,19 @@ struct acceptor::impl {
 
 /***************************************************************************/
 
+acceptor::acceptor(acceptor &&r)
+    :pimpl{std::move(r.pimpl)}
+{}
+
+acceptor& acceptor::operator=(acceptor &&r) {
+    pimpl = std::move(r.pimpl);
+    return *this;
+}
+
+acceptor::acceptor(boost::asio::io_context &ios)
+    :pimpl{std::make_unique<impl>(ios)}
+{}
+
 acceptor::acceptor(boost::asio::io_context& ios, const char *ip, boost::uint16_t port)
     :pimpl{std::make_unique<impl>(ios, ip, port)}
 {}
@@ -113,6 +147,11 @@ void acceptor::close(error_code& ec) { return pimpl->close(ec); }
 
 void acceptor::stop_accept() { return pimpl->stop_accept(); }
 void acceptor::stop_accept(error_code& ec) { return pimpl->stop_accept(ec); }
+
+void acceptor::open(const char *ip, std::uint16_t port)
+{ return pimpl->open(ip, port); }
+void acceptor::open(const char *ip, std::uint16_t port, error_code& ec)
+{ return pimpl->open(ip, port, ec); }
 
 void acceptor::accept(socket &sock, error_code& ec, endpoint* ep) { return pimpl->accept(sock, ec, ep); }
 socket acceptor::accept(error_code& ec, endpoint* ep) { return pimpl->accept(ec, ep); }

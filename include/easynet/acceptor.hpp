@@ -48,6 +48,7 @@ struct acceptor {
     acceptor(acceptor &&);
     acceptor& operator= (acceptor &&);
 
+    acceptor(boost::asio::io_context& ios);
     acceptor(boost::asio::io_context& ios, const char *ip, std::uint16_t port);
     virtual ~acceptor();
 
@@ -60,6 +61,9 @@ struct acceptor {
 
     void stop_accept();
     void stop_accept(error_code& ec);
+
+    void open(const char *ip, std::uint16_t port);
+    void open(const char *ip, std::uint16_t port, error_code& ec);
 
     void accept(socket &sock, error_code& ec, endpoint *ep = nullptr);
     socket accept(error_code& ec, endpoint *ep = nullptr);
