@@ -59,7 +59,7 @@ struct socket {
     void connect(const char *ip, std::uint16_t port, error_code &ec);
 
     /** async connect */
-    void async_connect(const char *ip, std::uint16_t port, std::function<void(const error_code &ec)> cb);
+    void async_connect(const char *ip, std::uint16_t port, std::function<void(const error_code &ec, impl_holder)> cb, impl_holder holder = {});
 
     /** disconnect */
     void disconnect();
