@@ -45,8 +45,8 @@ struct acceptor {
     acceptor(const acceptor &) = delete;
     acceptor& operator= (const acceptor &) = delete;
 
-    acceptor(acceptor &&);
-    acceptor& operator= (acceptor &&);
+    acceptor(acceptor &&) noexcept;
+    acceptor& operator= (acceptor &&) noexcept;
 
     acceptor(boost::asio::io_context& ios);
     acceptor(boost::asio::io_context& ios, const char *ip, std::uint16_t port);

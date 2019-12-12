@@ -116,11 +116,11 @@ struct acceptor::impl {
 
 /***************************************************************************/
 
-acceptor::acceptor(acceptor &&r)
+acceptor::acceptor(acceptor &&r) noexcept
     :pimpl{std::move(r.pimpl)}
 {}
 
-acceptor& acceptor::operator=(acceptor &&r) {
+acceptor& acceptor::operator=(acceptor &&r) noexcept {
     pimpl = std::move(r.pimpl);
     return *this;
 }

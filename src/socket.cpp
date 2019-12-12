@@ -94,11 +94,11 @@ struct socket::impl {
         m_sock.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port), ec);
     }
 
-    void async_connect(const char *ip, std::uint16_t port, std::function<void(const error_code &ec, impl_holder)> cb, impl_holder holder) {
+    void async_connect(const char *ip, std::uint16_t port, connect_cb_type cb, impl_holder holder) {
         m_sock.async_connect(
              boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port)
             ,[cb=std::move(cb), holder=std::move(holder)]
-             (const error_code &ec)
+             (const error_code &ec) mutable
              { cb(ec, std::move(holder)); }
         );
     }
@@ -494,11 +494,11 @@ struct socket::impl {
 
 /***************************************************************************/
 
-socket::socket(socket &&r)
+socket::socket(socket &&r) noexcept
     :pimpl{std::move(r.pimpl)}
 {}
 
-socket& socket::operator=(socket &&r) {
+socket& socket::operator=(socket &&r) noexcept {
     pimpl = std::move(r.pimpl);
     return *this;
 }
@@ -519,7 +519,7 @@ boost::asio::io_context& socket::get_io_context() { return pimpl->m_sock.get_io_
 void socket::connect(const char *ip, boost::uint16_t port) { return pimpl->connect(ip, port); }
 void socket::connect(const char *ip, boost::uint16_t port, error_code &ec) { return pimpl->connect(ip, port, ec); }
 
-void socket::async_connect(const char *ip, std::uint16_t port, std::function<void(const error_code &ec, impl_holder)> cb, impl_holder holder)
+void socket::async_connect(const char *ip, std::uint16_t port, connect_cb_type cb, impl_holder holder)
 { return pimpl->async_connect(ip, port, std::move(cb), std::move(holder)); }
 
 void socket::disconnect() { return pimpl->disconnect(); }

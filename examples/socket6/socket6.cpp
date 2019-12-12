@@ -52,9 +52,10 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
         socket.async_connect(
              m_ip
             ,m_port
-            ,[this, self=std::move(self)]
-             (const easynet::error_code &ec)
-             { on_connected(ec, std::move(self)); }
+            ,[this]
+             (const easynet::error_code &ec, easynet::impl_holder holder)
+             { on_connected(ec, std::move(holder)); }
+            ,std::move(self)
         );
     }
 

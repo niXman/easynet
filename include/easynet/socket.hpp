@@ -45,8 +45,8 @@ struct socket {
     socket(const socket &) = delete;
     socket& operator= (const socket &) = delete;
 
-    socket(socket &&r);
-    socket& operator= (socket &&r);
+    socket(socket &&r) noexcept;
+    socket& operator= (socket &&r) noexcept;
 
     socket(boost::asio::io_context &ios);
     virtual ~socket();
@@ -59,7 +59,8 @@ struct socket {
     void connect(const char *ip, std::uint16_t port, error_code &ec);
 
     /** async connect */
-    void async_connect(const char *ip, std::uint16_t port, std::function<void(const error_code &ec, impl_holder)> cb, impl_holder holder = {});
+    using connect_cb_type = std::function<void(const error_code &ec, impl_holder)>;
+    void async_connect(const char *ip, std::uint16_t port, connect_cb_type cb, impl_holder holder = {});
 
     /** disconnect */
     void disconnect();
@@ -114,6 +115,54 @@ struct socket {
     void wait_write();
     void wait_write(error_code &ec);
 
+    /** async wait for the socket to become ready to write */
+    template<typename F>
+    void async_wait_write(F f, impl_holder holder = {}) {
+        append_task(e_task::write, std::move(f), std::move(holder));
+    }
+    template<typename Obj>
+    void async_wait_write(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
+        append_task(
+             e_task::write
+            ,[o, m]
+             (const error_code &ec, impl_holder holder)
+             { (o->*m)(ec, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+
+    /** async wait for the socket to become ready to read */
+    template<typename F>
+    void async_wait_read(F f, impl_holder holder = {}) {
+        append_task(e_task::read, std::move(f), std::move(holder));
+    }
+    template<typename Obj>
+    void async_wait_read(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
+        append_task(
+             e_task::read
+            ,[o, m]
+             (const error_code &ec, impl_holder holder)
+             { (o->*m)(ec, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+
+    /** async wait for a socket to have error conditions pending */
+    template<typename F>
+    void async_wait_error(F f, impl_holder holder = {}) {
+        append_task(e_task::error, std::move(f), std::move(holder));
+    }
+    template<typename Obj>
+    void async_wait_error(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
+        append_task(
+             e_task::error
+            ,[o, m]
+             (const error_code &ec, impl_holder holder)
+             { (o->*m)(ec, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+
     /** sync write */
     std::size_t write(const void* ptr, std::size_t size);
     std::size_t write(const void* ptr, std::size_t size, error_code &ec);
@@ -124,21 +173,6 @@ struct socket {
     struct memfn_ptr {
         using type = void(Obj::*)(const error_code&, shared_buffer, std::size_t, impl_holder);
     };
-
-    /** async wait for the socket to become ready to write */
-    template<typename F>
-    void async_wait_write(F f, impl_holder holder = {}) {
-        append_task(e_task::write, std::move(f), std::move(holder));
-    }
-    template<typename Obj>
-    void async_wait_write(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
-        append_task(
-            e_task::write
-            ,[o, m] (const error_code &ec, impl_holder holder)
-             { (o->*m)(ec, std::move(holder)); }
-            ,std::move(holder)
-        );
-    }
 
     /** async write */
     template<typename F>
@@ -223,21 +257,6 @@ struct socket {
     std::size_t read(void* ptr, std::size_t size, error_code &ec);
     shared_buffer read(std::size_t size);
     shared_buffer read(std::size_t size, error_code &ec);
-
-    /** async wait for the socket to become ready to read */
-    template<typename F>
-    void async_wait_read(F f, impl_holder holder = {}) {
-        append_task(e_task::read, std::move(f), std::move(holder));
-    }
-    template<typename Obj>
-    void async_wait_read(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
-        append_task(
-             e_task::read
-            ,[o, m] (const error_code &ec, impl_holder holder)
-            { (o->*m)(ec, std::move(holder)); }
-            ,std::move(holder)
-        );
-    }
 
     /** async read */
     template<typename F>
