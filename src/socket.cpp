@@ -323,7 +323,7 @@ struct socket::impl {
     }
 
     void append_task(e_task task, handler_type2 cb, impl_holder holder) {
-        assert(task == e_task::read || task == e_task::write);
+        assert(task == e_task::read || task == e_task::write || task == e_task::error);
 
         auto wt = task == e_task::read
             ? boost::asio::ip::tcp::socket::wait_read
@@ -507,8 +507,7 @@ socket::socket(boost::asio::io_context& ios)
     :pimpl{std::make_unique<impl>(ios)}
 {}
 
-socket::~socket()
-{}
+socket::~socket() = default;
 
 void* socket::get_impl_details() { return &(pimpl->m_sock); }
 

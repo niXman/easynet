@@ -133,8 +133,7 @@ acceptor::acceptor(boost::asio::io_context& ios, const char *ip, boost::uint16_t
     :pimpl{std::make_unique<impl>(ios, ip, port)}
 {}
 
-acceptor::~acceptor()
-{}
+acceptor::~acceptor() = default;
 
 /***************************************************************************/
 
