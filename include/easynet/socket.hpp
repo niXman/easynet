@@ -345,6 +345,7 @@ private:
         ,write_some
         ,read
         ,read_some
+        ,error
     };
 
     using handler_type = std::function<void(const error_code&, shared_buffer, std::size_t, impl_holder)>;

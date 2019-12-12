@@ -327,12 +327,15 @@ struct socket::impl {
 
         auto wt = task == e_task::read
             ? boost::asio::ip::tcp::socket::wait_read
-            : boost::asio::ip::tcp::socket::wait_write
+            : task == e_task::write
+                ? boost::asio::ip::tcp::socket::wait_write
+                : boost::asio::ip::tcp::socket::wait_error
         ;
 
         m_sock.async_wait(
              wt
-            ,[cb=std::move(cb), holder=std::move(holder)](const error_code& ec) mutable
+            ,[cb=std::move(cb), holder=std::move(holder)]
+             (const error_code& ec) mutable
              { cb(ec, std::move(holder)); }
         );
     }
@@ -357,6 +360,7 @@ struct socket::impl {
             case e_task::read_some:  { start_read_some(item); return; }
             case e_task::write:      { start_write(item); return; }
             case e_task::write_some: { start_write_some(item); return; }
+            default: break;
         }
     }
 
