@@ -58,6 +58,32 @@ inline shared_buffer buffer_alloc(std::size_t size) {
     };
 }
 
+inline shared_buffer buffer_resize(const shared_buffer &buffer, std::size_t size) {
+    if ( buffer.size == 0 ) { return buffer_alloc(size); }
+    if ( size == 0 ) { return {}; }
+    if ( buffer.size == size ) { return buffer; }
+
+    if ( size < buffer.size ) {
+        shared_buffer result = {
+             {buffer.data, buffer.data.get()}
+            ,size
+            ,0 // offset
+        };
+
+        return result;
+    }
+
+    // size > buffer.size
+    shared_buffer result = {
+         {new char[size], std::default_delete<char[]>()}
+        ,size
+        ,0 // offset
+    };
+    std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
+
+    return result;
+}
+
 inline shared_buffer buffer_clone(const shared_buffer &buffer) {
     if ( !buffer.size ) { return {}; }
 
