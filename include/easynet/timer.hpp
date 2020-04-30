@@ -57,7 +57,7 @@ struct timer {
     void start(std::size_t ms, Obj* o, void(Obj::*m)(const error_code &ec, impl_holder), impl_holder holder = {}) {
         start(
              ms
-            ,[this, o, m]
+            ,[o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
             ,std::move(holder)

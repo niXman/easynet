@@ -70,7 +70,8 @@ namespace easynet {
 
 struct socket::impl {
     impl(boost::asio::io_context& ios)
-        :m_sock{ios}
+        :m_ios{ios}
+        ,m_sock{m_ios}
         ,m_read_queue{}
         ,m_write_queue{}
     {
@@ -84,7 +85,7 @@ struct socket::impl {
     }
 
     /** returns io_context */
-    boost::asio::io_context& get_io_context() { return m_sock.get_io_context(); }
+    boost::asio::io_context& get_io_context() { return m_ios; }
 
     /** sync connect */
     void connect(const char *ip, boost::uint16_t port) {
@@ -484,6 +485,7 @@ struct socket::impl {
         EASYNET_EXPAND_EXPR(std::cout << "socket::read_handler leave: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;)
     }
 
+    boost::asio::io_context &m_ios;
     boost::asio::ip::tcp::socket m_sock;
     using allocator_type = handler_allocator<128>;
     queue_type m_read_queue;
@@ -513,7 +515,7 @@ void* socket::get_impl_details() { return &(pimpl->m_sock); }
 
 /***************************************************************************/
 
-boost::asio::io_context& socket::get_io_context() { return pimpl->m_sock.get_io_context(); }
+boost::asio::io_context& socket::get_io_context() { return pimpl->get_io_context(); }
 
 void socket::connect(const char *ip, boost::uint16_t port) { return pimpl->connect(ip, port); }
 void socket::connect(const char *ip, boost::uint16_t port, error_code &ec) { return pimpl->connect(ip, port, ec); }

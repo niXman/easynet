@@ -39,10 +39,12 @@ namespace easynet {
 
 struct acceptor::impl {
     impl(boost::asio::io_context& ios, const char *ip, std::uint16_t port)
-        :m_acc{ios, boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port), true}
+        :m_ios{ios}
+        ,m_acc{m_ios, boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(ip), port), true}
     {}
     impl(boost::asio::io_context& ios)
-        :m_acc{ios}
+        :m_ios{ios}
+        ,m_acc{m_ios}
     {}
     ~impl() {
         error_code ec;
@@ -86,7 +88,7 @@ struct acceptor::impl {
     }
 
     socket accept(error_code& ec, endpoint *ep) {
-        socket sock(m_acc.get_io_context());
+        socket sock(m_ios);
         auto *sock_impl = static_cast<boost::asio::ip::tcp::socket*>(sock.get_impl_details());
         boost::asio::ip::tcp::endpoint endpoint;
         m_acc.accept(*sock_impl, endpoint, ec);
@@ -111,6 +113,7 @@ struct acceptor::impl {
         );
     }
 
+    boost::asio::io_context& m_ios;
     boost::asio::ip::tcp::acceptor m_acc;
 };
 
@@ -137,7 +140,7 @@ acceptor::~acceptor() = default;
 
 /***************************************************************************/
 
-boost::asio::io_context& acceptor::get_io_context() { return pimpl->m_acc.get_io_context(); }
+boost::asio::io_context& acceptor::get_io_context() { return pimpl->m_ios; }
 
 void acceptor::cancel() { return pimpl->cancel(); }
 void acceptor::cancel(error_code& ec) { return pimpl->cancel(ec); }
