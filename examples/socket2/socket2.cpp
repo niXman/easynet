@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013-2019 niXman (github dotty nixman doggy pm dotty me)
+// Copyright (c) 2013-2020 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
