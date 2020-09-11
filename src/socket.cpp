@@ -324,11 +324,11 @@ struct socket::impl {
     }
 
     void append_task(e_task task, handler_type2 cb, impl_holder holder) {
-        assert(task == e_task::read || task == e_task::write || task == e_task::wait_error);
+        assert(task == e_task::wait_read || task == e_task::wait_write || task == e_task::wait_error);
 
-        auto wt = task == e_task::read
+        auto wt = task == e_task::wait_read
             ? boost::asio::ip::tcp::socket::wait_read
-            : task == e_task::write
+            : task == e_task::wait_write
                 ? boost::asio::ip::tcp::socket::wait_write
                 : boost::asio::ip::tcp::socket::wait_error
         ;
@@ -346,12 +346,26 @@ struct socket::impl {
 
         auto &toappend = (task == e_task::read || task == e_task::read_some) ? m_read_queue : m_write_queue;
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::append_task: this=" << this << ", op=" << task_name(task) << ", size=" << item->buffer.size << ", addr=" << item << ", queue_size=" << toappend.size() << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::append_task: this=" << this
+            << ", op=" << task_name(task)
+            << ", size=" << item->buffer.size
+            << ", addr=" << item
+            << ", queue_size=" << toappend.size() << std::endl;
+        )
 
         toappend.push_back(*item);
 
         if ( toappend.size() == 1u ) {
-            EASYNET_EXPAND_EXPR(std::cout << "socket::append_task->start_task: this=" << this << ", op=" << task_name(task) << ", size=" << item->buffer.size << ", addr=" << item << std::endl;)
+            EASYNET_EXPAND_EXPR(
+                std::cout
+                << "socket::append_task->start_task: this=" << this
+                << ", op=" << task_name(task)
+                << ", size=" << item->buffer.size
+                << ", addr=" << item << std::endl;
+            )
+
             start_task(item);
         }
     }
@@ -371,7 +385,13 @@ struct socket::impl {
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::start_write: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::start_write: this=" << this
+            << ", op=" << task_name(item->task)
+            << ", size=" << buf_size
+            << ", addr=" << item << std::endl;
+        )
 
         boost::asio::async_write(
              m_sock
@@ -389,7 +409,13 @@ struct socket::impl {
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::start_write_some: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::start_write_some: this=" << this
+            << ", op=" << task_name(item->task)
+            << ", size=" << buf_size
+            << ", addr=" << item << std::endl;
+        )
 
         m_sock.async_write_some(
              boost::asio::buffer(buf_data, buf_size)
@@ -406,7 +432,11 @@ struct socket::impl {
         EASYNET_EXPAND_EXPR(
             auto size = buffer.size;
             auto task = task_name(item->task);
-            std::cout << "socket::write_handler enter: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;
+            std::cout
+            << "socket::write_handler enter: this=" << this
+            << ", op=" << task
+            << ", size=" << size
+            << ", addr=" << item << std::endl;
         )
 
         m_write_queue.pop_front_and_dispose([](task_item *item){ delete item; });
@@ -418,7 +448,13 @@ struct socket::impl {
             start_task(item2);
         }
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::write_handler leave: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::write_handler leave: this=" << this
+            << ", op=" << task
+            << ", size=" << size
+            << ", addr=" << item << std::endl;
+        )
     }
 
     /**  */
@@ -431,7 +467,13 @@ struct socket::impl {
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::start_read: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::start_read: this=" << this
+            << ", op=" << task_name(item->task)
+            << ", size=" << buf_size
+            << ", addr=" << item << std::endl;
+        )
 
         boost::asio::async_read(
              m_sock
@@ -453,7 +495,13 @@ struct socket::impl {
         auto buf_data = buffer_data(item->buffer);
         auto buf_size = buffer_size(item->buffer);
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::start_read_some: this=" << this << ", op=" << task_name(item->task) << ", size=" << buf_size << ", addr=" << item << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::start_read_some: this=" << this
+            << ", op=" << task_name(item->task)
+            << ", size=" << buf_size
+            << ", addr=" << item << std::endl;
+        )
 
         m_sock.async_read_some(
              boost::asio::buffer(buf_data, buf_size)
@@ -470,7 +518,11 @@ struct socket::impl {
         EASYNET_EXPAND_EXPR(
             auto size = buffer.size;
             auto task = task_name(item->task);
-            std::cout << "socket::read_handler enter: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;
+            std::cout
+            << "socket::read_handler enter: this=" << this
+            << ", op=" << task
+            << ", size=" << size
+            << ", addr=" << item << std::endl;
         )
 
         m_read_queue.pop_front_and_dispose([](task_item *item){ delete item; });
@@ -482,7 +534,13 @@ struct socket::impl {
             start_task(item2);
         }
 
-        EASYNET_EXPAND_EXPR(std::cout << "socket::read_handler leave: this=" << this << ", op=" << task << ", size=" << size << ", addr=" << item << std::endl;)
+        EASYNET_EXPAND_EXPR(
+            std::cout
+            << "socket::read_handler leave: this=" << this
+            << ", op=" << task
+            << ", size=" << size
+            << ", addr=" << item << std::endl;
+        )
     }
 
     boost::asio::io_context &m_ios;

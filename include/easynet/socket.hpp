@@ -39,6 +39,8 @@
 
 namespace easynet {
 
+using opid = void *;
+
 /***************************************************************************/
 
 struct socket {
@@ -118,12 +120,12 @@ struct socket {
     /** async wait for the socket to become ready to write */
     template<typename F>
     void async_wait_write(F f, impl_holder holder = {}) {
-        append_task(e_task::write, std::move(f), std::move(holder));
+        append_task(e_task::wait_write, std::move(f), std::move(holder));
     }
     template<typename Obj>
     void async_wait_write(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
         append_task(
-             e_task::write
+             e_task::wait_write
             ,[o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
@@ -134,12 +136,12 @@ struct socket {
     /** async wait for the socket to become ready to read */
     template<typename F>
     void async_wait_read(F f, impl_holder holder = {}) {
-        append_task(e_task::read, std::move(f), std::move(holder));
+        append_task(e_task::wait_read, std::move(f), std::move(holder));
     }
     template<typename Obj>
     void async_wait_read(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
         append_task(
-             e_task::read
+             e_task::wait_read
             ,[o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
