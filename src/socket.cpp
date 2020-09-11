@@ -324,7 +324,7 @@ struct socket::impl {
     }
 
     void append_task(e_task task, handler_type2 cb, impl_holder holder) {
-        assert(task == e_task::read || task == e_task::write || task == e_task::error);
+        assert(task == e_task::read || task == e_task::write || task == e_task::wait_error);
 
         auto wt = task == e_task::read
             ? boost::asio::ip::tcp::socket::wait_read

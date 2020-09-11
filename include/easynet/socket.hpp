@@ -150,12 +150,12 @@ struct socket {
     /** async wait for a socket to have error conditions pending */
     template<typename F>
     void async_wait_error(F f, impl_holder holder = {}) {
-        append_task(e_task::error, std::move(f), std::move(holder));
+        append_task(e_task::wait_error, std::move(f), std::move(holder));
     }
     template<typename Obj>
     void async_wait_error(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
         append_task(
-             e_task::error
+             e_task::wait_error
             ,[o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
@@ -362,9 +362,11 @@ private:
     enum class e_task: std::uint8_t {
          write
         ,write_some
+        ,wait_write
         ,read
         ,read_some
-        ,error
+        ,wait_read
+        ,wait_error
     };
 
     using handler_type = std::function<void(const error_code&, shared_buffer, std::size_t, impl_holder)>;
