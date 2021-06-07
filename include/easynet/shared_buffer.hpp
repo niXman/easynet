@@ -33,6 +33,8 @@
 #define __easynet__shared_buffer_hpp
 
 #include <memory>
+#include <vector>
+#include <string>
 #include <cstring>
 #include <cassert>
 
@@ -170,6 +172,32 @@ inline char* buffer_data_unshifted(shared_buffer &buffer) {
 
 inline std::size_t buffer_refs(const shared_buffer &buffer) {
     return static_cast<std::size_t>(buffer.data.use_count());
+}
+
+/***************************************************************************/
+
+template<
+     typename ByteT
+    ,typename = typename std::enable_if<std::is_fundamental<ByteT>::value && sizeof(ByteT) == 1>::type
+>
+inline shared_buffer make_nonowning_buffer(const std::vector<ByteT> &vec) {
+    shared_buffer buf{
+         {const_cast<char *>(static_cast<const char *>(vec.data())), [](char*){}}
+        ,vec.size()
+        ,0
+    };
+
+    return buf;
+}
+
+inline shared_buffer make_nonowning_buffer(const std::string &str) {
+    shared_buffer buf{
+         {const_cast<char *>(static_cast<const char *>(str.data())), [](char*){}}
+        ,str.size()
+        ,0
+    };
+
+    return buf;
 }
 
 /***************************************************************************/
