@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013-2021 niXman (github dotty nixman doggy pm dotty me)
+// Copyright (c) 2013-2022 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -38,8 +38,6 @@
 #include <functional>
 
 namespace easynet {
-
-using opid = void *;
 
 /***************************************************************************/
 
@@ -121,14 +119,13 @@ struct socket {
     /** cb: void(const error_code &, impl_holder) */
     template<typename F>
     void async_wait_write(F f, impl_holder holder = {}) {
-        append_task(e_task::wait_write, std::move(f), std::move(holder));
+        append_task(e_task::wait_write, shared_buffer{}, nullptr, 0u, std::move(f), std::move(holder));
     }
     /** cb: void(const error_code &, impl_holder) */
     template<typename Obj>
     void async_wait_write(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
-        append_task(
-             e_task::wait_write
-            ,[o, m]
+        async_wait_write(
+             [o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
             ,std::move(holder)
@@ -139,14 +136,13 @@ struct socket {
     /** cb: void(const error_code &, impl_holder) */
     template<typename F>
     void async_wait_read(F f, impl_holder holder = {}) {
-        append_task(e_task::wait_read, std::move(f), std::move(holder));
+        append_task(e_task::wait_read, shared_buffer{}, nullptr, 0u, std::move(f), std::move(holder));
     }
     /** cb: void(const error_code &, impl_holder) */
     template<typename Obj>
     void async_wait_read(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
-        append_task(
-             e_task::wait_read
-            ,[o, m]
+        async_wait_read(
+             [o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
             ,std::move(holder)
@@ -157,14 +153,13 @@ struct socket {
     /** cb: void(const error_code &, impl_holder) */
     template<typename F>
     void async_wait_error(F f, impl_holder holder = {}) {
-        append_task(e_task::wait_error, std::move(f), std::move(holder));
+        append_task(e_task::wait_error, shared_buffer{}, nullptr, 0u, std::move(f), std::move(holder));
     }
     /** cb: void(const error_code &, impl_holder) */
     template<typename Obj>
     void async_wait_error(Obj *o, void(Obj::*m)(const error_code &, impl_holder), impl_holder holder = {}) {
-        append_task(
-             e_task::wait_error
-            ,[o, m]
+        async_wait_error(
+             [o, m]
              (const error_code &ec, impl_holder holder)
              { (o->*m)(ec, std::move(holder)); }
             ,std::move(holder)
@@ -181,17 +176,26 @@ struct socket {
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_write(shared_buffer buf, F f, impl_holder holder = {}) {
-        append_task(e_task::write, std::move(buf), std::move(f), std::move(holder));
+        append_task(
+             e_task::write
+            ,std::move(buf)
+            ,nullptr
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_write(const void *ptr, std::size_t size, F f, impl_holder holder = {}) {
-        shared_buffer buf{
-            {const_cast<char *>(static_cast<const char *>(ptr)), [](char*){}}
-            ,size
-            ,0
-        };
-        append_task(e_task::write, std::move(buf), std::move(f), std::move(holder));
+        append_task(
+             e_task::write
+            ,shared_buffer{{const_cast<char *>(static_cast<const char *>(ptr)), [](char*){}}, size, 0u, 0u}
+            ,nullptr
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename Obj>
@@ -238,17 +242,19 @@ struct socket {
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_write_some(shared_buffer buf, F f, impl_holder holder = {}) {
-        append_task(e_task::write_some, std::move(buf), std::move(f), std::move(holder));
+        append_task(e_task::write_some, std::move(buf), nullptr, 0u, std::move(f), std::move(holder));
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_write_some(const void *ptr, std::size_t size, F f, impl_holder holder = {}) {
-        shared_buffer buf{
-             {const_cast<char *>(static_cast<const char *>(ptr)), [](char*){}}
-            ,size
-            ,0
-        };
-        append_task(e_task::write_some, std::move(buf), std::move(f), std::move(holder));
+        append_task(
+             e_task::write_some
+            ,shared_buffer{{const_cast<char *>(static_cast<const char *>(ptr)), [](char*){}}, size, 0u, 0u}
+            ,nullptr
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename Obj>
@@ -292,29 +298,49 @@ struct socket {
     /** sync read */
     std::size_t read(void* ptr, std::size_t size);
     std::size_t read(void* ptr, std::size_t size, error_code &ec);
+
     shared_buffer read(std::size_t size);
     shared_buffer read(std::size_t size, error_code &ec);
+
+    /** sync read until */
+    std::size_t read_until(std::string &buffer, char delim);
+    std::size_t read_until(std::string &buffer, char delim, error_code &ec);
+    std::size_t read_until(std::string &buffer, std::size_t max_size, char delim);
+    std::size_t read_until(std::string &buffer, std::size_t max_size, char delim, error_code &ec);
+    std::size_t read_until(std::string &buffer, const char *delim, std::size_t delim_len);
+    std::size_t read_until(std::string &buffer, const char *delim, std::size_t delim_len, error_code &ec);
+    std::size_t read_until(std::string &buffer, std::size_t max_size, const char *delim, std::size_t delim_len);
+    std::size_t read_until(std::string &buffer, std::size_t max_size, const char *delim, std::size_t delim_len, error_code &ec);
 
     /** async read */
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_read(std::size_t size, F f, impl_holder holder = {}) {
-        append_task(e_task::read, shared_buffer{nullptr, size, 0}, std::move(f), std::move(holder));
+        append_task(
+             e_task::read
+            ,shared_buffer{nullptr, size, 0u, 0u}
+            ,0
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_read(void *ptr, std::size_t size, F f, impl_holder holder = {}) {
-        shared_buffer buf{
-             {static_cast<char *>(ptr), [](char *){}}
-            ,size
+        append_task(
+             e_task::read
+            ,shared_buffer{{static_cast<char *>(ptr), [](char *){}}, size, 0u, 0u}
             ,0
-        };
-        append_task(e_task::read, std::move(buf), std::move(f), std::move(holder));
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_read(shared_buffer buf, F f, impl_holder holder = {}) {
-        append_task(e_task::read, std::move(buf), std::move(f), std::move(holder));
+        append_task(e_task::read, std::move(buf), nullptr, 0u, std::move(f), std::move(holder));
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename Obj>
@@ -367,6 +393,209 @@ struct socket {
         );
     }
 
+    /** async read until a delimiter for a single char delimiter */
+
+    /** size - initial size of internal buffer for read */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename F>
+    void async_read_until(std::size_t size, char delim, F f, impl_holder holder = {}) {
+        append_task(
+             e_task::read_until
+            ,shared_buffer{nullptr, size, 0u, 0u}
+            ,std::addressof(delim)
+            ,sizeof(delim)
+            ,std::move(f)
+            ,std::move(holder)
+        );
+    }
+    /** ptr and size - user provided buffer */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename F>
+    void async_read_until(void *ptr, std::size_t size, char delim, F f, impl_holder holder = {}) {
+        append_task(
+             e_task::read_until
+            ,shared_buffer{{static_cast<char *>(ptr), [](char *){}}, size, size, 0u}
+            ,std::addressof(delim)
+            ,sizeof(delim)
+            ,std::move(f)
+            ,std::move(holder)
+        );
+    }
+    /** buf - user provided buffer */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename F>
+    void async_read_until(shared_buffer buf, char delim, F f, impl_holder holder = {}) {
+        append_task(
+             e_task::read
+            ,std::move(buf)
+            ,std::addressof(delim)
+            ,sizeof(delim)
+            ,std::move(f)
+            ,std::move(holder)
+        );
+    }
+    /** ptr and size - user provided buffer */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename Obj>
+    void async_read_until(
+         void *ptr
+        ,std::size_t size
+        ,char delim
+        ,Obj* o
+        ,void(Obj::*m)(const error_code &, shared_buffer, std::size_t, impl_holder)
+        ,impl_holder holder = {})
+    {
+        async_read_until(
+             ptr
+            ,size
+            ,delim
+            ,[o, m]
+             (const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+    /** size - initial size of internal buffer for read */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename Obj>
+    void async_read_until(
+         std::size_t size
+        ,char delim
+        ,Obj* o
+        ,void(Obj::*m)(const error_code &, shared_buffer, std::size_t, impl_holder)
+        ,impl_holder holder = {})
+    {
+        async_read_until(
+             size
+            ,delim
+            ,[o, m]
+             (const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+    /** buf - user provided buffer */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename Obj>
+    void async_read_until(
+         shared_buffer buf
+        ,char delim
+        ,Obj* o
+        ,void(Obj::*m)(const error_code &, shared_buffer, std::size_t, impl_holder)
+        ,impl_holder holder = {})
+    {
+        async_read_until(
+             std::move(buf)
+            ,delim
+            ,[o, m]
+             (const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+
+    /** async read until for multi-char delimiter*/
+
+    /** size - initial size of internal buffer for read */
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename F>
+    void async_read_until(std::size_t size, const char *delim, std::size_t delim_len, F f, impl_holder holder = {}) {
+        append_task(
+             e_task::read_until
+            ,shared_buffer{nullptr, size, 0u, 0u}
+            ,delim
+            ,delim_len
+            ,std::move(f)
+            ,std::move(holder)
+        );
+    }
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename F>
+    void async_read_until(void *ptr, std::size_t size, const char *delim, std::size_t delim_len, F f, impl_holder holder = {}) {
+        append_task(
+             e_task::read_until
+            ,shared_buffer{{static_cast<char *>(ptr), [](char *){}}, size, size, 0u}
+            ,delim
+            ,delim_len
+            ,std::move(f)
+            ,std::move(holder)
+        );
+    }
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename F>
+    void async_read_until(shared_buffer buf, const char *delim, std::size_t delim_len, F f, impl_holder holder = {}) {
+        append_task(
+             e_task::read
+            ,std::move(buf)
+            ,delim
+            ,delim_len
+            ,std::move(f)
+            ,std::move(holder)
+        );
+    }
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename Obj>
+    void async_read_until(
+         void *ptr
+        ,std::size_t size
+        ,const char *delim
+        ,std::size_t delim_len
+        ,Obj* o
+        ,void(Obj::*m)(const error_code &, shared_buffer, std::size_t, impl_holder)
+        ,impl_holder holder = {})
+    {
+        async_read_until(
+             ptr
+            ,size
+            ,delim
+            ,delim_len
+            ,[o, m]
+             (const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename Obj>
+    void async_read_until(
+         std::size_t size
+        ,const char *delim
+        ,std::size_t delim_len
+        ,Obj* o
+        ,void(Obj::*m)(const error_code &, shared_buffer, std::size_t, impl_holder)
+        ,impl_holder holder = {})
+    {
+        async_read_until(
+             size
+            ,delim
+            ,delim_len
+            ,[o, m]
+             (const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+    /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
+    template<typename Obj>
+    void async_read_until(
+         shared_buffer buf
+        ,const char *delim
+        ,std::size_t delim_len
+        ,Obj* o
+        ,void(Obj::*m)(const error_code &, shared_buffer, std::size_t, impl_holder)
+        ,impl_holder holder = {})
+    {
+        async_read_until(
+             std::move(buf)
+            ,delim
+            ,delim_len
+            ,[o, m]
+             (const error_code &ec, shared_buffer buf, std::size_t rd, impl_holder holder)
+             { (o->*m)(ec, std::move(buf), rd, std::move(holder)); }
+            ,std::move(holder)
+        );
+    }
+
     /** sync read some */
     std::size_t read_some(void* ptr, std::size_t size);
     std::size_t read_some(void* ptr, std::size_t size, error_code &ec);
@@ -377,22 +606,31 @@ struct socket {
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_read_some(std::size_t size, F f, impl_holder holder = {}) {
-        append_task(e_task::read_some, shared_buffer{nullptr, size, 0}, std::move(f), std::move(holder));
+        append_task(
+             e_task::read_some
+            ,shared_buffer{nullptr, size, 0u, 0u}
+            ,nullptr
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_read_some(void *ptr, std::size_t size, F f, impl_holder holder = {}) {
-        shared_buffer buf{
-             {static_cast<char *>(ptr), [](char *){}}
-            ,size
-            ,0
-        };
-        append_task(e_task::read_some, std::move(buf), std::move(f), std::move(holder));
+        append_task(
+             e_task::read_some
+            ,shared_buffer{{static_cast<char *>(ptr), [](char *){}}, size, 0u, 0u}
+            ,nullptr
+            ,0u
+            ,std::move(f)
+            ,std::move(holder)
+        );
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename F>
     void async_read_some(shared_buffer buf, F f, impl_holder holder = {}) {
-        append_task(e_task::read_some, std::move(buf), std::move(f), std::move(holder));
+        append_task(e_task::read_some, std::move(buf), nullptr, 0u, std::move(f), std::move(holder));
     }
     /** cb: void(const error_code &, shared_buffer, std::size_t, impl_holder) */
     template<typename Obj>
@@ -446,20 +684,20 @@ struct socket {
     }
 
 private:
+    // don't rearrange the enum's members
     enum class e_task: std::uint8_t {
-         write
-        ,write_some
-        ,wait_write
-        ,read
-        ,read_some
-        ,wait_read
-        ,wait_error
+         wait_read  = 0
+        ,wait_error // 1
+        ,read       // 2
+        ,read_some  // 3
+        ,read_until // 4
+        ,write      // 5
+        ,write_some // 6
+        ,wait_write // 7
     };
 
     using handler_type = std::function<void(const error_code&, shared_buffer, std::size_t, impl_holder)>;
-    void append_task(e_task task, shared_buffer buf, handler_type cb, impl_holder holder);
-    using handler_type2 = std::function<void(const error_code&, impl_holder)>;
-    void append_task(e_task task, handler_type2 ch, impl_holder holder);
+    void append_task(e_task task, shared_buffer buf, const char *delim, std::size_t delim_len, handler_type cb, impl_holder holder);
 
     friend struct acceptor;
     /** returns the pointer to impl details */

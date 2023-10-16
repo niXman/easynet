@@ -40,21 +40,49 @@
 
 struct client_impl: std::enable_shared_from_this<client_impl> {
     client_impl(boost::asio::io_context& ios, const char *ip, std::uint16_t port)
-        :socket(ios)
-    {
-        socket.connect(ip, port);
+        :socket{ios}
+        ,m_ip{ip}
+        ,m_port{port}
+        ,m_idx{}
+        ,m_wbuf{}
+    {}
+
+    void start() {
+        auto self = shared_from_this();
+        socket.async_connect(
+             m_ip
+            ,m_port
+            ,[this]
+             (const easynet::error_code &ec, easynet::impl_holder holder)
+             { on_connected(ec, std::move(holder)); }
+            ,std::move(self)
+        );
     }
 
-    void write() {
-        easynet::shared_buffer buf = easynet::buffer_alloc(tests_config::buffer_size);
-        std::strcpy(easynet::buffer_data(buf), "data string");
+    void on_connected(const easynet::error_code &ec, easynet::impl_holder holder) {
+        if ( ec ) {
+            std::cout << "can't connect with error \"" << ec.message() << "\"" << std::endl;
 
-        socket.async_write_some(buf, this, &client_impl::write_handler, shared_from_this());
-    }
-    void read() {
-        socket.async_read_some(tests_config::buffer_size, this, &client_impl::read_handler, shared_from_this());
+            return;
+        }
+
+        write(std::move(holder));
     }
 
+
+    void write(easynet::impl_holder holder) {
+        m_wbuf = easynet::buffer_alloc(tests_config::buffer_size);
+        std::snprintf(
+             easynet::buffer_data(m_wbuf)
+            ,easynet::buffer_size(m_wbuf)
+            ,"data string no=%zu"
+            ,m_idx
+        );
+
+        ++m_idx;
+
+        socket.async_write_some(m_wbuf, this, &client_impl::write_handler, std::move(holder));
+    }
     void write_handler(const easynet::error_code &ec, easynet::shared_buffer buf, size_t wr, easynet::impl_holder holder) {
         std::cout
         << "write_handler(): " << easynet::buffer_data(buf) << ", " << wr << ", ec = " << ec
@@ -62,8 +90,10 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
 
         if ( !ec ) {
             if ( wr != easynet::buffer_size(buf) ) {
-                easynet::shared_buffer nbuf = easynet::buffer_shift(buf, wr);
+                easynet::shared_buffer nbuf = easynet::buffer_lshift(buf, wr);
                 socket.async_write_some(std::move(nbuf), this, &client_impl::write_handler, std::move(holder));
+            } else {
+                socket.async_read_some(tests_config::buffer_size, this, &client_impl::read_handler, std::move(holder));
             }
         } else {
             std::cout << "[1] ec = " << ec << std::endl;
@@ -77,8 +107,14 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
 
         if ( !ec ) {
             if ( rd != easynet::buffer_size(buf) ) {
-                easynet::shared_buffer nbuf = easynet::buffer_shift(buf, rd);
+                easynet::shared_buffer nbuf = easynet::buffer_lshift(buf, rd);
                 socket.async_read_some(nbuf, this, &client_impl::read_handler, std::move(holder));
+            } else {
+                std::cout << easynet::buffer_data_unshifted(buf) << std::endl;
+
+                assert(std::memcmp(easynet::buffer_data_unshifted(buf), easynet::buffer_data_unshifted(m_wbuf), easynet::buffer_size(buf)) == 0);
+
+                write(std::move(holder));
             }
         } else {
             std::cout << "[2] ec = " << ec << std::endl;
@@ -87,6 +123,10 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
 
 private:
     easynet::socket socket;
+    const char *m_ip;
+    const std::uint16_t m_port;
+    std::size_t m_idx;
+    easynet::shared_buffer m_wbuf;
 };
 
 /***************************************************************************/
@@ -97,8 +137,7 @@ int main(int, char**) {
 
         {
             auto client = std::make_shared<client_impl>(ios, tests_config::ip, tests_config::port);
-            client->write();
-            client->read();
+            client->start();
         }
 
         ios.run();

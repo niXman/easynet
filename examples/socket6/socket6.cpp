@@ -35,6 +35,7 @@
 #include <boost/asio/io_context.hpp>
 
 #include <iostream>
+#include <cinttypes>
 
 /***************************************************************************/
 
@@ -75,8 +76,8 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
         std::snprintf(
              easynet::buffer_data(m_wbuf)
             ,easynet::buffer_size(m_wbuf)
-            ,"data string no=%zu"
-            ,m_idx
+            ,"data string no=%" PRIu64 "\n"
+            ,static_cast<std::uint64_t>(m_idx)
         );
 
         ++m_idx;
@@ -89,11 +90,11 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
         << std::endl;
 
         if ( !ec ) {
-            if ( wr != easynet::buffer_size(buf) ) {
-                easynet::shared_buffer nbuf = easynet::buffer_shift(buf, wr);
+            if ( wr != tests_config::buffer_size ) {
+                easynet::shared_buffer nbuf = easynet::buffer_lshift(buf, wr);
                 socket.async_write_some(std::move(nbuf), this, &client_impl::write_handler, std::move(holder));
             } else {
-                socket.async_read_some(tests_config::buffer_size, this, &client_impl::read_handler, std::move(holder));
+                socket.async_read_until(tests_config::buffer_size, '\n', this, &client_impl::read_handler, std::move(holder));
             }
         } else {
             std::cout << "[1] ec = " << ec << std::endl;
@@ -106,16 +107,11 @@ struct client_impl: std::enable_shared_from_this<client_impl> {
         << std::endl;
 
         if ( !ec ) {
-            if ( rd != easynet::buffer_size(buf) ) {
-                easynet::shared_buffer nbuf = easynet::buffer_shift(buf, rd);
-                socket.async_read_some(nbuf, this, &client_impl::read_handler, std::move(holder));
-            } else {
-                std::cout << easynet::buffer_data_unshifted(buf) << std::endl;
+            std::cout << easynet::buffer_data_unshifted(buf) << std::endl;
 
-                assert(std::memcmp(easynet::buffer_data_unshifted(buf), easynet::buffer_data_unshifted(m_wbuf), easynet::buffer_size(buf)) == 0);
+            assert(std::memcmp(easynet::buffer_data_unshifted(buf), easynet::buffer_data_unshifted(m_wbuf), easynet::buffer_size(buf)) == 0);
 
-                write(std::move(holder));
-            }
+            write(std::move(holder));
         } else {
             std::cout << "[2] ec = " << ec << std::endl;
         }

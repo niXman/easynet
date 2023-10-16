@@ -1,5 +1,5 @@
 
-// Copyright (c) 2013-2021 niXman (github dotty nixman doggy pm dotty me)
+// Copyright (c) 2013-2022 niXman (github dotty nixman doggy pm dotty me)
 // All rights reserved.
 //
 // This file is part of EASYNET(https://github.com/niXman/easynet) project.
@@ -45,54 +45,50 @@ namespace easynet {
 struct shared_buffer {
     std::shared_ptr<char> data;
     std::size_t size;
+    std::size_t capacity;
     std::size_t offset;
 };
 
 /***************************************************************************/
 
+constexpr inline std::size_t calc_capacity(std::size_t size) {
+    constexpr double sqrt_of_5 = 2.2360679775;
+    return static_cast<std::size_t>(size * sqrt_of_5 / 1.5);
+}
+
 inline shared_buffer buffer_alloc(std::size_t size) {
     if ( !size ) { return {}; }
 
+    auto capacity = calc_capacity(size);
     return {
-         {new char[size], std::default_delete<char[]>()}
+         {new char[capacity], std::default_delete<char[]>()}
         ,size
-        ,0 // offset
+        ,capacity // capacity
+        ,0u // offset
     };
 }
 
-inline shared_buffer buffer_resize(const shared_buffer &buffer, std::size_t size) {
-    if ( buffer.size == 0 ) { return buffer_alloc(size); }
-    if ( size == 0 ) { return {}; }
-    if ( buffer.size == size ) { return buffer; }
+inline shared_buffer buffer_alloc(std::size_t size, std::size_t cap) {
+    if ( !size && !cap ) { return {}; }
+    assert(cap >= size);
 
-    if ( size < buffer.size ) {
-        shared_buffer result = {
-             {buffer.data, buffer.data.get()}
-            ,size
-            ,0 // offset
-        };
-
-        return result;
-    }
-
-    // size > buffer.size
-    shared_buffer result = {
-         {new char[size], std::default_delete<char[]>()}
+    return {
+         {new char[cap], std::default_delete<char[]>()}
         ,size
-        ,0 // offset
+        ,cap // capacity
+        ,0u  // offset
     };
-    std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
-
-    return result;
 }
 
 inline shared_buffer buffer_clone(const shared_buffer &buffer) {
-    if ( !buffer.size ) { return {}; }
+    if ( !buffer.data ) { return {}; }
 
+    std::size_t capacity = (std::max)(buffer.capacity, buffer.size);
     shared_buffer result = {
-         {new char[buffer.size], std::default_delete<char[]>()}
+         {new char[capacity], std::default_delete<char[]>()}
         ,buffer.size
-        ,0 // offset
+        ,capacity // capacity
+        ,0u // offset
     };
     std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
 
@@ -102,25 +98,29 @@ inline shared_buffer buffer_clone(const shared_buffer &buffer) {
 inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t size) {
     assert(size <= buffer.size);
 
+    std::size_t capacity = (std::max)(buffer.capacity, buffer.size);
     shared_buffer result = {
-         {new char[size], std::default_delete<char[]>()}
+         {new char[capacity], std::default_delete<char[]>()}
         ,size
-        ,0 // offset
+        ,capacity // capacity
+        ,0u // offset
     };
     std::memcpy(result.data.get(), buffer.data.get(), size);
 
     return result;
 }
 
-inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t from, std::size_t size) {
-    assert(size > 0 && size <= buffer.size && from <= buffer.size && from+size <= buffer.size);
+inline shared_buffer buffer_clone(const shared_buffer &buffer, std::size_t from, std::size_t len) {
+    assert(len <= buffer.size && from <= buffer.size && from+len <= buffer.size);
 
+    std::size_t capacity = (std::max)(buffer.capacity, buffer.size);
     shared_buffer result = {
-         {new char[size], std::default_delete<char[]>()}
-        ,size
-        ,0 // offset
+         {new char[capacity], std::default_delete<char[]>()}
+        ,len
+        ,capacity // capacity
+        ,0u // offset
     };
-    std::memcpy(result.data.get(), buffer.data.get()+from, size);
+    std::memcpy(result.data.get(), buffer.data.get()+from, len);
 
     return result;
 }
@@ -131,17 +131,74 @@ inline shared_buffer buffer_clone(const void *ptr, size_t size) {
     shared_buffer result = {
          {new char[size], std::default_delete<char[]>()}
         ,size
-        ,0 // offset
+        ,size // capacity
+        ,0u // offset
     };
     std::memcpy(result.data.get(), ptr, size);
 
     return result;
 }
 
-inline shared_buffer buffer_shift(const shared_buffer &buffer, std::size_t bytes) {
+inline void buffer_reserve(shared_buffer &buffer, std::size_t cap) {
+    if ( !buffer.data ) {
+        buffer = buffer_alloc(0, cap);
+
+        return;
+    }
+
+    if ( cap <= buffer.capacity ) {
+        return;
+    }
+
+    auto new_buffer = buffer_alloc(buffer.size, cap);
+    std::memcpy(new_buffer.data.get(), buffer.data.get(), buffer.size);
+}
+
+inline void buffer_resize(shared_buffer &buffer, std::size_t size) {
+    if ( buffer.size == 0 ) {
+        buffer = buffer_alloc(size);
+
+        return;
+    }
+
+    if ( buffer.size == size ) {
+        return;
+    }
+
+    // size <= buffer.capacity
+    if ( size <= buffer.capacity ) {
+        shared_buffer result = {
+             {buffer.data, buffer.data.get()}
+            ,size
+            ,buffer.capacity // capacity
+            ,0u // offset
+        };
+
+        buffer = result;
+
+        return;
+    }
+
+    // size > buffer.capacity
+    auto capacity = calc_capacity(size);
+    shared_buffer result = {
+         {new char[capacity], std::default_delete<char[]>()}
+        ,size
+        ,capacity // capacity
+        ,0u // offset
+    };
+    std::memcpy(result.data.get(), buffer.data.get(), buffer.size);
+
+    buffer = result;
+}
+
+inline shared_buffer buffer_lshift(const shared_buffer &buffer, std::size_t bytes) {
+    assert(bytes <= buffer.size);
+
     shared_buffer result = {
         {buffer.data, buffer.data.get()+bytes}
         ,buffer.size-bytes
+        ,buffer.capacity-bytes // capacity
         ,buffer.offset+bytes // offset
     };
 
@@ -152,6 +209,10 @@ inline shared_buffer buffer_shift(const shared_buffer &buffer, std::size_t bytes
 
 inline std::size_t buffer_size(const shared_buffer &buffer) {
     return buffer.size;
+}
+
+inline std::size_t buffer_capacity(const shared_buffer &buffer) {
+    return buffer.capacity;
 }
 
 inline const char* buffer_data(const shared_buffer &buffer) {
@@ -184,7 +245,8 @@ inline shared_buffer make_nonowning_buffer(const std::vector<ByteT> &vec) {
     shared_buffer buf{
          {const_cast<char *>(static_cast<const char *>(vec.data())), [](char*){}}
         ,vec.size()
-        ,0
+        ,vec.size()
+        ,0u
     };
 
     return buf;
@@ -194,7 +256,8 @@ inline shared_buffer make_nonowning_buffer(const std::string &str) {
     shared_buffer buf{
          {const_cast<char *>(static_cast<const char *>(str.data())), [](char*){}}
         ,str.size()
-        ,0
+        ,str.size()
+        ,0u
     };
 
     return buf;

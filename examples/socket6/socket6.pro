@@ -4,6 +4,9 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
+#DEFINES += \
+#    BOOST_ASIO_NO_DYNAMIC_BUFFER_V1
+
 QMAKE_CXXFLAGS += \
     -std=c++14 \
     -pthread
